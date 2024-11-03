@@ -248,4 +248,6 @@ for di, data_key in enumerate(st.session_state.data.keys()):
                                 st.warning('dataunit is not complete!', icon="⚠️")
                             else:
                                 fig = Plot.dataunit(dataunit, style='CE', show=False)
-                                st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+                                
+                                key = f'{data_key}_{unit_key}_fig'
+                                st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)

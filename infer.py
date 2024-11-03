@@ -173,7 +173,9 @@ with st.expander('***Manual fitting***', expanded=False):
         
         with plot_col:
             fig = Plot.infer_ctsspec(infer, style='CE', show=False)
-            st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+            
+            key = 'manual_ctsspec_fig'
+            st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
             
 with st.expander('***Bayesian inference***', expanded=False):
     
@@ -316,14 +318,18 @@ with st.expander('***Bayesian inference***', expanded=False):
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
                 fig = Plot.post_corner(post, show=False)
-                st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+                
+                key = 'infer_corner_fig'
+                st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
                 
         with st.popover("Counts spectra plot", use_container_width=True):
             if not st.session_state.infer_state['run_state']:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
                 fig = Plot.infer_ctsspec(post, style='CE', show=False)
-                st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+                
+                key = 'infer_ctsspec_fig'
+                st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
                 
         with st.popover("Model spectra plot", use_container_width=True):       
             key = 'post_model_style'; ini = None; set_ini(key, ini)
@@ -391,4 +397,5 @@ with st.expander('***Bayesian inference***', expanded=False):
                             
                     fig = modelplot.add_model(comp, earr, tarr, show=False)
 
-                st.plotly_chart(fig, theme="streamlit", use_container_width=True)
+                key = 'infer_model_fig'
+                st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
