@@ -361,7 +361,7 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
             with set_col:
                 info = """**Note: The model expression defines a combined model 
                 involved with multiple components, which is also the model used 
-                by this model object.**"""
+                in the fitting.**"""
                 st.info(info)
 
                 key = f'{model_key}_expression'; ini = None; set_ini(key, ini)

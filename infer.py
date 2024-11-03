@@ -277,8 +277,6 @@ with st.expander('***Bayesian inference***', expanded=False):
                     st.write('Stop: %s' % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
                     st.session_state.infer_state['run_state'] = True
                     status.update(label="Run complete!", state="complete", expanded=False)
-                    
-                st.session_state['infer_resume'] = 'Yes'
 
     with post_col:
         
