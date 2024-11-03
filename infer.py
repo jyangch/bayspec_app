@@ -4,11 +4,8 @@ import time
 import numpy as np
 import pandas as pd
 import streamlit as st
-from io import StringIO
 from pathlib import Path
 from bayspec.util.plot import Plot
-from threading import current_thread
-from contextlib import contextmanager
 from bayspec.infer.infer import Infer
 from bayspec.util.tools import init_session_state
 
