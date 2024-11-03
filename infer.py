@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 import numpy as np
 import pandas as pd
@@ -182,21 +181,12 @@ with st.expander('***Bayesian inference***', expanded=False):
     
     with run_col:
         with st.popover("Sampler settings", use_container_width=True):
-            key = 'infer_sampler'; ini = 'multinest'; set_ini(key, ini)
-            options = ['multinest', 'emcee']
+            key = 'infer_sampler'; ini = 'emcee'; set_ini(key, ini)
+            options = ['emcee', 'multinest']
             sampler = st.selectbox('Choose bayesian sampler', 
                                     options, 
                                     index=get_idx(key, options), 
                                     key=key)
-
-            key = 'infer_resume'; ini = 'Yes'; set_ini(key, ini)
-            options = ['Yes', 'No']
-            resume = st.selectbox('Choose to resume or not', 
-                                  options, 
-                                  index=get_idx(key, options), 
-                                  key=key)
-            if resume == 'Yes': resume = True
-            if resume == 'No': resume = False
 
             if sampler == 'multinest':
                 try:
@@ -237,10 +227,19 @@ with st.expander('***Bayesian inference***', expanded=False):
                                           step=100, 
                                           key=key)
                 
-        key = 'infer_savepath'; ini = None; set_ini(key, ini)
+        key = 'infer_resume'; ini = 'Yes'; set_ini(key, ini)
+        options = ['Yes', 'No']
+        resume = st.selectbox('Choose to resume or not', 
+                                options, 
+                                index=get_idx(key, options), 
+                                key=key)
+        if resume == 'Yes': resume = True
+        if resume == 'No': resume = False
+                
+        key = 'infer_savepath'; ini = '/home/appuser/Downloads/bsp'; set_ini(key, ini)
         savepath = st.text_input('Input the path to save the results', 
                                  value=get_val(key), 
-                                 placeholder='/Users/jyang/Downloads/bsp', 
+                                 placeholder='/home/appuser/Downloads/bsp', 
                                  key=key)
         if savepath == '' or savepath is None: 
             dirpath = get_download_folder()
@@ -278,6 +277,8 @@ with st.expander('***Bayesian inference***', expanded=False):
                     st.write('Stop: %s' % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
                     st.session_state.infer_state['run_state'] = True
                     status.update(label="Run complete!", state="complete", expanded=False)
+                    
+                st.session_state['infer_resume'] = 'Yes'
 
     with post_col:
         
