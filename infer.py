@@ -246,6 +246,8 @@ with st.expander('***Bayesian inference***', expanded=False):
             dirpath = get_download_folder()
             folder = 'bsp_%d' % (np.random.uniform() * 1e10)
             savepath = f'{dirpath}/{folder}'
+        st.info(f'savepath: {savepath}')
+        
         if os.path.exists(savepath):
             st.info('Note: the folder of results has already existed!')
 
