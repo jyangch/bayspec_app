@@ -1,1 +1,2 @@
 bayspec>=0.1.8
+astromodels>=2.4.2

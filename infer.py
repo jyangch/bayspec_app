@@ -11,7 +11,6 @@ from threading import current_thread
 from contextlib import contextmanager
 from bayspec.infer.infer import Infer
 from bayspec.util.tools import init_session_state
-from streamlit.runtime.scriptrunner.script_run_context import SCRIPT_RUN_CONTEXT_ATTR_NAME
 
 
 css='''
@@ -22,39 +21,6 @@ css='''
 st.markdown(css, unsafe_allow_html=True)
 
 init_session_state()
-
-@contextmanager
-def st_redirect(src, dst):
-    placeholder = st.empty()
-    output_func = getattr(placeholder, dst)
-
-    with StringIO() as buffer:
-        old_write = src.write
-
-        def new_write(b):
-            if getattr(current_thread(), SCRIPT_RUN_CONTEXT_ATTR_NAME, None):
-                buffer.write(b + '')
-                output_func(buffer.getvalue() + '')
-            else:
-                old_write(b)
-
-        try:
-            src.write = new_write
-            yield
-        finally:
-            src.write = old_write
-
-@contextmanager
-def st_stdout(dst):
-    "this will show the prints"
-    with st_redirect(sys.stdout, dst):
-        yield
-
-@contextmanager
-def st_stderr(dst):
-    "This will show the logging"
-    with st_redirect(sys.stderr, dst):
-        yield
 
 def set_ini(key, ini=None):
     if key not in st.session_state.infer_state:
@@ -82,9 +48,9 @@ def get_idx(key, options):
         return options.index(value)
 
 def get_download_folder():
-    if os.name == "nt":  # Windows
+    if os.name == "nt":
         return Path(os.getenv("USERPROFILE")) / "Downloads"
-    else:  # macOS and Linux
+    else:
         return Path.home() / "Downloads"
 
 st.session_state.infer = None
@@ -300,19 +266,20 @@ with st.expander('***Bayesian inference***', expanded=False):
             else:
                 with st.sidebar.status('Running...', expanded=True) as status:
                     st.write('Start: %s' % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-                    with st_stdout("info"):
-                        if sampler == 'multinest':
-                            post = infer.multinest(nlive=multinest_nlive, 
-                                                   resume=resume, 
-                                                   savepath=savepath)
-                        if sampler == 'emcee':
-                            post = infer.emcee(nstep=emcee_nstep, 
-                                               resume=resume, 
-                                               savepath=savepath)
+
+                    if sampler == 'multinest':
+                        post = infer.multinest(nlive=multinest_nlive, 
+                                                resume=resume, 
+                                                savepath=savepath)
+                    if sampler == 'emcee':
+                        post = infer.emcee(nstep=emcee_nstep, 
+                                            resume=resume, 
+                                            savepath=savepath)
+
                     st.write('Stop: %s' % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
                     st.session_state.infer_state['run_state'] = True
                     status.update(label="Run complete!", state="complete", expanded=False)
-                    
+
     with post_col:
         
         with st.popover("Posterior analyse", use_container_width=True):
