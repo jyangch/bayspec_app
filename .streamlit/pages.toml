@@ -15,5 +15,5 @@ icon = "🌈"
 
 [[pages]]
 path = "infer.py"
-name = "Infer"
+name = "Fitting"
 icon = "📝"
