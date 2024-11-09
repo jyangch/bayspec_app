@@ -140,9 +140,10 @@ with st.expander('***Manual fitting***', expanded=False):
     if not st.session_state.infer_state['infer_pair_flag']:
         st.warning('No infer pair!', icon="⚠️")
     else:
-        stat_col, _, plot_col = st.columns([4.9, 0.2, 4.9])
-
-        with stat_col:
+        _, param_col, _ = st.columns([0.2, 0.6, 0.2])
+        
+        with param_col:
+        
             free_par_df = pd.DataFrame(infer.free_par_info.data_dict)
             key = 'manual_free_par'; ini = par_df; set_ini(key, ini)
             free_par_df = st.data_editor(get_data(key), 
@@ -159,6 +160,10 @@ with st.expander('***Manual fitting***', expanded=False):
             for _, row in free_par_df.to_dict('index').items():
                 now_par.append(row['Value'])
             infer.at_par(now_par)
+        
+        stat_col, _, plot_col = st.columns([4.9, 0.2, 4.9])
+
+        with stat_col:
 
             stat_df = pd.DataFrame(infer.stat_info.data_dict)
             key = 'manual_stat'
