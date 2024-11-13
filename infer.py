@@ -281,7 +281,7 @@ with st.expander('***Bayesian inference***', expanded=False):
     with post_col:
         
         with st.popover("Posterior analyse", use_container_width=True):
-            if post not in st.session_state.infer_state:
+            if 'post' not in st.session_state.infer_state:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
                 free_par_df = pd.DataFrame(post.free_par_info.data_dict)
@@ -312,7 +312,7 @@ with st.expander('***Bayesian inference***', expanded=False):
                                        key=key)
         
         with st.popover("Posterior corner plot", use_container_width=True):
-            if post not in st.session_state.infer_state:
+            if 'post' not in st.session_state.infer_state:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
                 fig = Plot.post_corner(post, show=False)
@@ -321,7 +321,7 @@ with st.expander('***Bayesian inference***', expanded=False):
                 st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
                 
         with st.popover("Counts spectra plot", use_container_width=True):
-            if post not in st.session_state.infer_state:
+            if 'post' not in st.session_state.infer_state:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
                 fig = Plot.infer_ctsspec(post, style='CE', show=False)
@@ -330,7 +330,7 @@ with st.expander('***Bayesian inference***', expanded=False):
                 st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
                 
         with st.popover("Model spectra plot", use_container_width=True):
-            if post not in st.session_state.infer_state:
+            if 'post' not in st.session_state.infer_state:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
                 key = 'post_model_style'; ini = None; set_ini(key, ini)
