@@ -51,7 +51,6 @@ def get_download_folder():
 
 st.session_state.infer = None
 st.session_state.infer_state['infer_pair_flag'] = False
-st.session_state.infer_state['run_state'] = False
 
 all_pairs = {}
 for data_key in st.session_state.data.keys():
@@ -276,13 +275,13 @@ with st.expander('***Bayesian inference***', expanded=False):
                                             savepath=savepath)
 
                     st.write('Stop: %s' % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
-                    st.session_state.infer_state['run_state'] = True
+                    st.session_state.infer_state['post'] = post
                     status.update(label="Run complete!", state="complete", expanded=False)
 
     with post_col:
         
         with st.popover("Posterior analyse", use_container_width=True):
-            if not st.session_state.infer_state['run_state']:
+            if post not in st.session_state.infer_state:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
                 free_par_df = pd.DataFrame(post.free_par_info.data_dict)
@@ -313,7 +312,7 @@ with st.expander('***Bayesian inference***', expanded=False):
                                        key=key)
         
         with st.popover("Posterior corner plot", use_container_width=True):
-            if not st.session_state.infer_state['run_state']:
+            if post not in st.session_state.infer_state:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
                 fig = Plot.post_corner(post, show=False)
@@ -322,7 +321,7 @@ with st.expander('***Bayesian inference***', expanded=False):
                 st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
                 
         with st.popover("Counts spectra plot", use_container_width=True):
-            if not st.session_state.infer_state['run_state']:
+            if post not in st.session_state.infer_state:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
                 fig = Plot.infer_ctsspec(post, style='CE', show=False)
@@ -331,70 +330,73 @@ with st.expander('***Bayesian inference***', expanded=False):
                 st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
                 
         with st.popover("Model spectra plot", use_container_width=True):
-            key = 'post_model_style'; ini = None; set_ini(key, ini)
-            options = ['Fv', 'NE', 'vFv', 'NoU']
-            style = st.selectbox('Select spectral style to display', 
-                                options, 
-                                index=ini, 
-                                key=key)
-            
-            all_comps = dict()
-            for cdict in st.session_state.model_component.values():
-                all_comps.update(cdict)
-                
-            nou_comps = dict()
-            you_comps = dict()
-            for key, comp in all_comps.items():
-                if comp.type in ['mul', 'math']:
-                    nou_comps[key] = comp
-                if comp.type in ['add', 'tinv']:
-                    you_comps[key] = comp
-            
-            if style in ['Fv', 'NE', 'vFv']:
-                options = list(you_comps.keys())
-            elif style in ['NoU']:
-                options = list(nou_comps.keys())
+            if post not in st.session_state.infer_state:
+                st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
-                options = []
-            
-            key = f'post_model_comps'; ini = None; set_ini(key, ini)
-            comp_keys = st.multiselect('Select model components to display', 
-                                    options=options, 
-                                    default=ini, 
+                key = 'post_model_style'; ini = None; set_ini(key, ini)
+                options = ['Fv', 'NE', 'vFv', 'NoU']
+                style = st.selectbox('Select spectral style to display', 
+                                    options, 
+                                    index=ini, 
                                     key=key)
-
-            if len(comp_keys) > 0:
-
-                modelplot = Plot.model(style=style, CI=True)
                 
-                comp_tabs = st.tabs([r'%s' % comp for comp in comp_keys])
-                for comp_key, comp_tab in zip(comp_keys, comp_tabs):
-                    comp = all_comps[comp_key]
-                    with comp_tab:
-                        key = f'post_{comp_key}_erange'; ini = (0, 4); set_ini(key, ini)
-                        erange = st.slider('Select energy range in logspace', 
-                                        -1, 5, 
-                                        value=(0, 4), 
+                all_comps = dict()
+                for cdict in st.session_state.model_component.values():
+                    all_comps.update(cdict)
+                    
+                nou_comps = dict()
+                you_comps = dict()
+                for key, comp in all_comps.items():
+                    if comp.type in ['mul', 'math']:
+                        nou_comps[key] = comp
+                    if comp.type in ['add', 'tinv']:
+                        you_comps[key] = comp
+                
+                if style in ['Fv', 'NE', 'vFv']:
+                    options = list(you_comps.keys())
+                elif style in ['NoU']:
+                    options = list(nou_comps.keys())
+                else:
+                    options = []
+                
+                key = f'post_model_comps'; ini = None; set_ini(key, ini)
+                comp_keys = st.multiselect('Select model components to display', 
+                                        options=options, 
+                                        default=ini, 
                                         key=key)
-                        earr = np.logspace(erange[0], erange[1], 300)
-                        
-                        if comp.type == 'tinv':
-                            key = f'post_{comp_key}_epoch'; ini = None; set_ini(key, ini)
-                            epoch = st.text_input('Input spectral time', 
-                                                value=ini, 
-                                                placeholder='defaults to 0', 
-                                                key=key)
-                            if epoch == '' or epoch is None: epoch = 0.0
-                            try: 
-                                epoch = float(epoch)
-                            except: 
-                                st.error('The input value should be int or float!', icon="🚨")
-                            else: 
-                                tarr = epoch * np.ones_like(earr)
-                        else:
-                            tarr = None
-                            
-                    fig = modelplot.add_model(comp, earr, tarr, show=False)
 
-                key = 'infer_model_fig'
-                st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
+                if len(comp_keys) > 0:
+
+                    modelplot = Plot.model(style=style, CI=True)
+                    
+                    comp_tabs = st.tabs([r'%s' % comp for comp in comp_keys])
+                    for comp_key, comp_tab in zip(comp_keys, comp_tabs):
+                        comp = all_comps[comp_key]
+                        with comp_tab:
+                            key = f'post_{comp_key}_erange'; ini = (0, 4); set_ini(key, ini)
+                            erange = st.slider('Select energy range in logspace', 
+                                            -1, 5, 
+                                            value=(0, 4), 
+                                            key=key)
+                            earr = np.logspace(erange[0], erange[1], 300)
+                            
+                            if comp.type == 'tinv':
+                                key = f'post_{comp_key}_epoch'; ini = None; set_ini(key, ini)
+                                epoch = st.text_input('Input spectral time', 
+                                                    value=ini, 
+                                                    placeholder='defaults to 0', 
+                                                    key=key)
+                                if epoch == '' or epoch is None: epoch = 0.0
+                                try: 
+                                    epoch = float(epoch)
+                                except: 
+                                    st.error('The input value should be int or float!', icon="🚨")
+                                else: 
+                                    tarr = epoch * np.ones_like(earr)
+                            else:
+                                tarr = None
+                                
+                        fig = modelplot.add_model(comp, earr, tarr, show=False)
+
+                    key = 'infer_model_fig'
+                    st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
