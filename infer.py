@@ -277,6 +277,9 @@ with st.expander('***Bayesian inference***', expanded=False):
                     st.write('Stop: %s' % time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()))
                     st.session_state.infer_state['post'] = post
                     status.update(label="Run complete!", state="complete", expanded=False)
+        else:
+            if 'post' in st.session_state.infer_state['post']:
+                post = st.session_state.infer_state['post']
 
     with post_col:
         
