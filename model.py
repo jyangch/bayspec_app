@@ -172,21 +172,18 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                         for this APP, please contact the APP author.**"""
                         st.info(info)
 
-                        editor_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-                            + '/docs/CodeEditor'
-                        with open(editor_dir + '/example_custom_buttons_bar_alt.json') as json_button_file_alt:
+                        with open('.streamlit/custom_buttons_bar_alt.json') as json_button_file_alt:
                             custom_buttons_alt = json.load(json_button_file_alt)
-                        with open(editor_dir + '/example_info_bar.json') as json_info_file:
+                        with open('.streamlit/info_bar.json') as json_info_file:
                             info_bar = json.load(json_info_file)
-                        with open(editor_dir + '/example_code_editor_css.scss') as css_file:
+                        with open('.streamlit/code_editor_css.scss') as css_file:
                             css_text = css_file.read()
 
                         comp_props = {"css": css_text, 
                                       "globalCSS": ":root {\n  --streamlit-dark-font-family: monospace;\n}"}
                         ace_props = {"style": {"borderRadius": "0px 0px 8px 8px"}}
 
-                        user_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__))) \
-                            + '/model/user'
+                        user_dir = os.path.dirname(os.path.abspath(__file__)) + '/model'
                         with open(user_dir + '/user.py') as file_obj:
                             model_format = file_obj.read()
 
