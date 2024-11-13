@@ -169,7 +169,7 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                     elif library == 'user':
                         info = """**Note: Please make sure to back up yourself defined model, 
                         as this APP will not save it. If you want to use it as a build-in model 
-                        for this APP, please contact the APP author.**"""
+                        of this APP, please contact the APP author (jyang@smail.nju.edu.cn).**"""
                         st.info(info)
 
                         with open('.streamlit/custom_buttons_bar_alt.json') as json_button_file_alt:
