@@ -1,2 +1,5 @@
 bayspec>=0.1.8
+streamlit>=1.36.0
+st-pages>=0.4.5
+streamlit_code_editor>=0.1.20
 astromodels>=2.4.2
