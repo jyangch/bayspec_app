@@ -2,7 +2,23 @@ import pandas as pd
 import streamlit as st
 from bayspec.util.plot import Plot
 from bayspec.data.data import DataUnit, Data
-from bayspec.util.tools import init_session_state
+
+
+def init_session_state():
+    if 'data' not in st.session_state:
+        st.session_state.data = {}
+    if 'data_state' not in st.session_state:
+        st.session_state.data_state = {}
+    if 'model' not in st.session_state:
+        st.session_state.model = {}
+    if 'model_component' not in st.session_state:
+        st.session_state.model_component = {}
+    if 'model_state' not in st.session_state:
+        st.session_state.model_state = {}
+    if 'infer' not in st.session_state:
+        st.session_state.infer = None
+    if 'infer_state' not in st.session_state:
+        st.session_state.infer_state = {}
 
 
 css='''
