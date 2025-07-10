@@ -186,7 +186,7 @@ with st.expander('***Manual fitting***', expanded=False):
                                      key=key)
         
         with plot_col:
-            fig = Plot.infer_ctsspec(infer, style='CE', show=False)
+            fig = Plot.infer(infer, style='CE', show=False)
             
             key = 'manual_ctsspec_fig'
             st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
@@ -343,7 +343,7 @@ with st.expander('***Bayesian inference***', expanded=False):
             if 'post' not in st.session_state.infer_state:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
-                fig = Plot.infer_ctsspec(post, style='CE', show=False)
+                fig = Plot.infer(post, style='CE', show=False)
                 
                 key = 'infer_ctsspec_fig'
                 st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
