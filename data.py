@@ -222,6 +222,49 @@ for di, data_key in enumerate(st.session_state.data.keys()):
                         grpg = {'min_evt': grpg_min_evt, 
                                 'min_sigma': grpg_min_sigma, 
                                 'max_bin': grpg_max_bin}
+                        
+                    key = f'{data_key}_{unit_key}_rebn_evt'; ini = None; set_ini(key, ini)
+                    rebn_min_evt = st.text_input('Input rebining minimum events: rebn_min_evt', 
+                                                 value=get_val(key), 
+                                                 placeholder='5 (defaults to None)', 
+                                                 key=key)
+                    if rebn_min_evt == '': rebn_min_evt = None
+                    if rebn_min_evt is not None:
+                        try: 
+                            rebn_min_evt = int(rebn_min_evt)
+                        except: 
+                            st.error('The input value should be int!', icon="🚨")
+
+                    key = f'{data_key}_{unit_key}_rebn_sig'; ini = None; set_ini(key, ini)
+                    rebn_min_sigma = st.text_input('Set rebining minimum sigma: rebn_min_sigma', 
+                                                   value=get_val(key), 
+                                                   placeholder='3 (defaults to None)', 
+                                                   key=key)
+                    if rebn_min_sigma == '': rebn_min_sigma = None
+                    if rebn_min_sigma is not None:
+                        try: 
+                            rebn_min_sigma = float(rebn_min_sigma)
+                        except: 
+                            st.error('The input value should be int or float!', icon="🚨")
+
+                    key = f'{data_key}_{unit_key}_rebn_bin'; ini = None; set_ini(key, ini)
+                    rebn_max_bin = st.text_input('Input rebining maximum bins: rebn_max_bin', 
+                                                 value=get_val(key), 
+                                                 placeholder='20 (defaults to None)', 
+                                                 key=key)
+                    if rebn_max_bin == '': rebn_max_bin = None
+                    if rebn_max_bin is not None:
+                        try: 
+                            rebn_max_bin = int(rebn_max_bin)
+                        except: 
+                            st.error('The input value should be int!', icon="🚨")
+
+                    if rebn_min_evt is None and rebn_min_sigma is None and rebn_max_bin is None: 
+                        rebn = None
+                    else: 
+                        rebn = {'min_evt': rebn_min_evt, 
+                                'min_sigma': rebn_min_sigma, 
+                                'max_bin': rebn_max_bin}
 
                     key = f'{data_key}_{unit_key}_time'; ini = None; set_ini(key, ini)
                     time = st.text_input('Input spectral time: time', 
@@ -237,7 +280,7 @@ for di, data_key in enumerate(st.session_state.data.keys()):
 
                     if src is not None:
                         dataunit = DataUnit(src=src, bkg=bkg, rsp=rsp, rmf=rmf, arf=arf, 
-                                            stat=stat, notc=notc, grpg=grpg, time=time)
+                                            stat=stat, notc=notc, grpg=grpg, rebn=rebn, time=time)
                         if dataunit.completeness:
                             st.session_state.data[data_key][expr] = dataunit
 
@@ -251,9 +294,11 @@ for di, data_key in enumerate(st.session_state.data.keys()):
                         else:
                             info = dict()
                             info['property'] = list(dataunit.info.data_dict['property'])[:7] \
-                                + ['grpg_min_evt', 'grpg_min_sigma', 'grpg_max_bin', 'time']
+                                + ['grpg_min_evt', 'grpg_min_sigma', 'grpg_max_bin', 
+                                   'rebn_min_evt', 'rebn_min_sigma', 'rebn_max_bin', 'time']
                             info[expr] = list(dataunit.info.data_dict[expr])[:7] \
-                                + [grpg_min_evt, grpg_min_sigma, grpg_max_bin, time]
+                                + [grpg_min_evt, grpg_min_sigma, grpg_max_bin, 
+                                   rebn_min_evt, rebn_min_sigma, rebn_max_bin, time]
                             st.dataframe(pd.DataFrame(info), use_container_width=True, hide_index=True)
                     
                     with st.popover('Display dataunit counts spectra', use_container_width=True):
@@ -263,7 +308,7 @@ for di, data_key in enumerate(st.session_state.data.keys()):
                             if not dataunit.completeness:
                                 st.warning('dataunit is not complete!', icon="⚠️")
                             else:
-                                fig = Plot.dataunit(dataunit, style='CE', show=False)
+                                fig = Plot.dataunit(dataunit, style='CE')
                                 
                                 key = f'{data_key}_{unit_key}_fig'
                                 st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)

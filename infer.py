@@ -186,7 +186,7 @@ with st.expander('***Manual fitting***', expanded=False):
                                      key=key)
         
         with plot_col:
-            fig = Plot.infer(infer, style='CE', show=False)
+            fig = Plot.infer(infer, style='CE')
             
             key = 'manual_ctsspec_fig'
             st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
@@ -334,7 +334,7 @@ with st.expander('***Bayesian inference***', expanded=False):
             if 'post' not in st.session_state.infer_state:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
-                fig = Plot.post_corner(post, show=False)
+                fig = Plot.post_corner(post)
                 
                 key = 'infer_corner_fig'
                 st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
@@ -343,7 +343,7 @@ with st.expander('***Bayesian inference***', expanded=False):
             if 'post' not in st.session_state.infer_state:
                 st.warning('Please run Bayesian inference!', icon="⚠️")
             else:
-                fig = Plot.infer(post, style='CE', show=False)
+                fig = Plot.infer(post, style='CE')
                 
                 key = 'infer_ctsspec_fig'
                 st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
@@ -415,7 +415,7 @@ with st.expander('***Bayesian inference***', expanded=False):
                             else:
                                 tarr = None
                                 
-                        fig = modelplot.add_model(comp, earr, tarr, show=False)
+                        fig = modelplot.add_model(comp, earr, tarr)
 
                     key = 'infer_model_fig'
                     st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)

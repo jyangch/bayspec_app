@@ -365,7 +365,7 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                                 
                             if style is not None:
                                 modelplot = Plot.model(style=style, CI=False)
-                                fig = modelplot.add_model(component, earr, tarr, show=False)
+                                fig = modelplot.add_model(component, earr, tarr)
                                 
                                 key = f'{model_key}_{component_key}_fig'
                                 st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
@@ -501,7 +501,7 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                                     else:
                                         tarr = None
                                         
-                                fig = modelplot.add_model(comp, earr, tarr, show=False)
+                                fig = modelplot.add_model(comp, earr, tarr)
 
                             key = f'{model_key}_fig'
                             st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)

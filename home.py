@@ -62,9 +62,3 @@ _BaySpec_ is distributed under the terms of the [`GPL-3.0`](https://www.gnu.org/
 """
 
 st.markdown(readme)
-
-st.markdown(
-    """
-    ### ⭐ Star the project on Github <iframe src="https://ghbtns.com/github-btn.html?user=jyangch&repo=bayspec&type=star&count=true" width="80" height="20" title="GitHub"></iframe> 
-    """, 
-    unsafe_allow_html=True)
