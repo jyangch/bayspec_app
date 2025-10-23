@@ -364,7 +364,7 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                                 tarr = None
                                 
                             if style is not None:
-                                modelplot = Plot.model(style=style, CI=False)
+                                modelplot = Plot.model(style=style, post=False)
                                 modelplot.add_model(component, earr, tarr)
                                 fig = modelplot.get_fig()
                                 
@@ -473,7 +473,7 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                         
                         if len(comp_keys) > 0:
                             
-                            modelplot = Plot.model(style=style, CI=False)
+                            modelplot = Plot.model(style=style, post=False)
                             
                             comp_tabs = st.tabs([r'%s' % comp for comp in comp_keys])
                             for comp_key, comp_tab in zip(comp_keys, comp_tabs):

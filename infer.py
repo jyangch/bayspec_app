@@ -386,7 +386,7 @@ with st.expander('***Bayesian inference***', expanded=False):
 
                 if len(comp_keys) > 0:
 
-                    modelplot = Plot.model(style=style, CI=True)
+                    modelplot = Plot.model(style=style, post=True)
                     
                     comp_tabs = st.tabs([r'%s' % comp for comp in comp_keys])
                     for comp_key, comp_tab in zip(comp_keys, comp_tabs):
