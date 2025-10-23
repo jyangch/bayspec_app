@@ -132,23 +132,14 @@ with st.expander('***Set fitting pairs***', expanded=False):
                     if len(pids) > 1:
                         infer.link([int(pi[4:]) for pi in pids])
                 
-                par_df = pd.DataFrame(infer.par_info.data_dict)
-                key = 'infer_par'
+                par_df = pd.DataFrame(infer.notable_par_info.data_dict)
+                key = 'notable_infer_par'
                 par_df = st.data_editor(par_df, 
                                         use_container_width=True, 
                                         num_rows='fixed', 
                                         disabled=True, 
                                         hide_index=True, 
                                         key=key)
-                
-                free_par_df = pd.DataFrame(infer.free_par_info.data_dict)
-                key = 'infer_free_par'
-                free_par_df = st.data_editor(free_par_df, 
-                                             use_container_width=True, 
-                                             num_rows='fixed', 
-                                             disabled=True, 
-                                             hide_index=True, 
-                                             key=key)
         
 with st.expander('***Manual fitting***', expanded=False):
     
@@ -156,7 +147,7 @@ with st.expander('***Manual fitting***', expanded=False):
         st.warning('No infer pair!', icon="⚠️")
     else:
         free_par_df = pd.DataFrame(infer.free_par_info.data_dict)
-        key = 'manual_free_par'; ini = par_df; set_ini(key, ini)
+        key = 'manual_free_par'; ini = free_par_df; set_ini(key, ini)
         free_par_df = st.data_editor(get_data(key), 
                                     use_container_width=True, 
                                     num_rows='fixed', 
