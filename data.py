@@ -311,4 +311,4 @@ for di, data_key in enumerate(st.session_state.data.keys()):
                                 fig = Plot.dataunit(dataunit, style='CE')
                                 
                                 key = f'{data_key}_{unit_key}_fig'
-                                st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
+                                st.plotly_chart(fig.fig, theme="streamlit", use_container_width=True, key=key)

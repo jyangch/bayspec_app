@@ -365,10 +365,11 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                                 
                             if style is not None:
                                 modelplot = Plot.model(style=style, CI=False)
-                                fig = modelplot.add_model(component, earr, tarr)
+                                modelplot.add_model(component, earr, tarr)
+                                fig = modelplot.get_fig()
                                 
                                 key = f'{model_key}_{component_key}_fig'
-                                st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
+                                st.plotly_chart(fig.fig, theme="streamlit", use_container_width=True, key=key)
 
         with expression_tab:
             set_col, _, info_col = st.columns([4.9, 0.2, 4.9])
@@ -501,7 +502,9 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                                     else:
                                         tarr = None
                                         
-                                fig = modelplot.add_model(comp, earr, tarr)
+                                modelplot.add_model(comp, earr, tarr)
+                                
+                            fig = modelplot.get_fig()
 
                             key = f'{model_key}_fig'
-                            st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
+                            st.plotly_chart(fig.fig, theme="streamlit", use_container_width=True, key=key)

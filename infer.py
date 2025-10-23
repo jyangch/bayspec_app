@@ -189,7 +189,7 @@ with st.expander('***Manual fitting***', expanded=False):
             fig = Plot.infer(infer, style='CE')
             
             key = 'manual_ctsspec_fig'
-            st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
+            st.plotly_chart(fig.fig, theme="streamlit", use_container_width=True, key=key)
             
 with st.expander('***Bayesian inference***', expanded=False):
     
@@ -337,7 +337,7 @@ with st.expander('***Bayesian inference***', expanded=False):
                 fig = Plot.post_corner(post)
                 
                 key = 'infer_corner_fig'
-                st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
+                st.plotly_chart(fig.fig, theme="streamlit", use_container_width=True, key=key)
                 
         with st.popover("Counts spectra plot", use_container_width=True):
             if 'post' not in st.session_state.infer_state:
@@ -346,7 +346,7 @@ with st.expander('***Bayesian inference***', expanded=False):
                 fig = Plot.infer(post, style='CE')
                 
                 key = 'infer_ctsspec_fig'
-                st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
+                st.plotly_chart(fig.fig, theme="streamlit", use_container_width=True, key=key)
                 
         with st.popover("Model spectra plot", use_container_width=True):
             if 'post' not in st.session_state.infer_state:
@@ -415,7 +415,9 @@ with st.expander('***Bayesian inference***', expanded=False):
                             else:
                                 tarr = None
                                 
-                        fig = modelplot.add_model(comp, earr, tarr)
+                        modelplot.add_model(comp, earr, tarr)
+
+                    fig = modelplot.get_fig()
 
                     key = 'infer_model_fig'
-                    st.plotly_chart(fig, theme="streamlit", use_container_width=True, key=key)
+                    st.plotly_chart(fig.fig, theme="streamlit", use_container_width=True, key=key)
