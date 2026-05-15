@@ -1,12 +1,110 @@
 {% extends "base.html" %}
 {% set active_page = "data" %}
 {% block title %}BaySpec — Data{% endblock %}
+
 {% block content %}
 <h1>Data</h1>
-<p class="page-subtitle">Load and configure detector data units.</p>
-<div class="empty-state">
-  <div class="empty-icon">🔭</div>
-  <div class="empty-title">Coming in Round 2</div>
-  <p>Upload OGIP spectra, set noticing windows and rebinning rules.</p>
+<p class="page-subtitle">Upload OGIP spectra and configure each detector unit.</p>
+
+<div class="two-col-layout">
+  <!-- ── Add unit form ─────────────────────────────── -->
+  <aside class="form-panel card">
+    <h3>Add DataUnit</h3>
+
+    <form
+      hx-post="/data/units"
+      hx-target="#unit-list"
+      hx-swap="outerHTML"
+      hx-encoding="multipart/form-data"
+      hx-indicator="#add-spinner"
+      enctype="multipart/form-data"
+      onsubmit="this.reset()"
+    >
+      <div class="form-group">
+        <label for="unit_key">Unit name <span class="req">*</span></label>
+        <input type="text" id="unit_key" name="unit_key"
+               placeholder="e.g. nai, bgo, me" required />
+      </div>
+
+      <div class="form-group">
+        <label for="src">Source spectrum <span class="req">*</span></label>
+        <input type="file" id="src" name="src" required />
+      </div>
+
+      <div class="form-group">
+        <label for="bkg">Background spectrum</label>
+        <input type="file" id="bkg" name="bkg" />
+      </div>
+
+      <details class="form-details">
+        <summary>Response files</summary>
+        <div class="form-details-body">
+          <div class="form-group">
+            <label for="rsp">RSP (combined response)</label>
+            <input type="file" id="rsp" name="rsp" />
+          </div>
+          <p class="field-hint">— or —</p>
+          <div class="form-group">
+            <label for="rmf">RMF (redistribution matrix)</label>
+            <input type="file" id="rmf" name="rmf" />
+          </div>
+          <div class="form-group">
+            <label for="arf">ARF (effective area)</label>
+            <input type="file" id="arf" name="arf" />
+          </div>
+        </div>
+      </details>
+
+      <div class="form-group">
+        <label for="stat">Fit statistic</label>
+        <select id="stat" name="stat">
+          <option value="pgstat" selected>pgstat (Poisson + Gaussian)</option>
+          <option value="pstat">pstat (Poisson + Poisson)</option>
+          <option value="cstat">cstat (Cash)</option>
+          <option value="gstat">gstat (Gaussian)</option>
+          <option value="chi2">chi2</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="notc_str">
+          Noticing windows
+          <span class="field-hint">e.g. <code>8, 900</code> or <code>8, 900 | 1000, 2000</code></span>
+        </label>
+        <input type="text" id="notc_str" name="notc_str"
+               placeholder="lo, hi  |  lo, hi  …" />
+      </div>
+
+      <details class="form-details">
+        <summary>Rebinning</summary>
+        <div class="form-details-body">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="min_sigma">Min sigma</label>
+              <input type="number" id="min_sigma" name="min_sigma" step="0.1" placeholder="e.g. 2" />
+            </div>
+            <div class="form-group">
+              <label for="max_bin">Max bin</label>
+              <input type="number" id="max_bin" name="max_bin" step="1" placeholder="e.g. 10" />
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <div class="form-footer">
+        <button type="submit" class="btn btn-primary">
+          + Add unit
+          <span id="add-spinner" class="htmx-indicator">
+            <span class="spinner"></span>
+          </span>
+        </button>
+      </div>
+    </form>
+  </aside>
+
+  <!-- ── Unit list ─────────────────────────────────── -->
+  <section class="unit-panel">
+    {% include "partials/unit_list.html" %}
+  </section>
 </div>
 {% endblock %}

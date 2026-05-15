@@ -1,0 +1,69 @@
+<div id="unit-list">
+{% if not s.data %}
+  <div class="empty-state">
+    <div class="empty-icon">🔭</div>
+    <div class="empty-title">No data units yet</div>
+    <p>Fill in the form on the left and click <b>+ Add unit</b>.</p>
+  </div>
+{% else %}
+  {% for key, du in s.data.items() %}
+  {% set dst = s.data_state.get(key, {}) %}
+  <div class="unit-card card">
+
+    <div class="unit-card-header">
+      <div class="unit-card-title">
+        <span class="unit-badge">{{ key }}</span>
+        {% if dst.get("error") %}
+          <span class="status-dot error" title="{{ dst.error }}"></span>
+          <span class="status-label error">Error</span>
+        {% else %}
+          <span class="status-dot ok"></span>
+          <span class="status-label ok">Loaded</span>
+        {% endif %}
+      </div>
+      <button class="btn btn-sm btn-danger"
+              hx-delete="/data/units/{{ key }}"
+              hx-target="#unit-list"
+              hx-swap="outerHTML"
+              hx-confirm="Remove unit '{{ key }}'?">
+        ✕ Remove
+      </button>
+    </div>
+
+    {% if dst.get("error") %}
+      <div class="alert alert-danger" style="margin-top:.75rem">{{ dst.error }}</div>
+    {% else %}
+      <table class="info-table" style="margin-top:.75rem">
+        <thead>
+          <tr><th>Property</th><th>Value</th></tr>
+        </thead>
+        <tbody>
+          {% set idict = du.info.data_list_dict %}
+          {% for prop, val in zip(idict["Property"], idict[key]) %}
+          <tr>
+            <td>{{ prop }}</td>
+            <td>{{ val if val is not none else "—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+
+      <div class="unit-plot-controls" style="margin-top:.85rem">
+        <button class="btn btn-sm"
+                hx-get="/data/units/{{ key }}/plot"
+                hx-target="#plot-{{ key }}"
+                hx-swap="innerHTML"
+                hx-indicator="#plot-spinner-{{ key }}">
+          📊 Show spectrum
+          <span id="plot-spinner-{{ key }}" class="htmx-indicator">
+            <span class="spinner"></span>
+          </span>
+        </button>
+      </div>
+      <div id="plot-{{ key }}" class="unit-plot"></div>
+    {% endif %}
+
+  </div>
+  {% endfor %}
+{% endif %}
+</div>

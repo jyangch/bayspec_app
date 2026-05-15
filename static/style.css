@@ -413,3 +413,74 @@ input:focus, select:focus, textarea:focus {
 }
 .tab-btn:hover { color: var(--text); background: var(--surface); }
 .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); background: transparent; }
+
+/* ===== Data page ===== */
+.two-col-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .two-col-layout { grid-template-columns: 1fr; }
+}
+
+.form-panel { padding: 1.2rem 1.3rem; }
+.form-panel h3 { margin-top: 0; margin-bottom: 1rem; font-size: 1.1rem; }
+
+.unit-panel { display: flex; flex-direction: column; gap: 1rem; }
+
+.form-details {
+  border: 1px solid var(--border-soft);
+  border-radius: 9px;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+.form-details > summary {
+  padding: .5rem .85rem;
+  font-weight: 500;
+  font-size: .9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  list-style: none;
+  background: var(--surface);
+}
+.form-details > summary::-webkit-details-marker { display: none; }
+.form-details > summary::after { content: ' ▸'; }
+.form-details[open] > summary::after { content: ' ▾'; }
+.form-details-body { padding: .75rem .85rem; }
+.form-footer { margin-top: 1.1rem; }
+
+.field-hint { font-size: .8rem; color: var(--text-muted); margin: .15rem 0 .3rem; }
+.req { color: var(--danger); }
+
+/* Unit cards */
+.unit-card { padding: 1rem 1.1rem; }
+.unit-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+}
+.unit-card-title { display: flex; align-items: center; gap: .5rem; }
+.unit-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .88rem;
+  font-weight: 600;
+  background: rgba(79,70,229,.10);
+  color: var(--primary);
+  padding: .2rem .6rem;
+  border-radius: 6px;
+}
+
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.status-dot.ok { background: var(--success); }
+.status-dot.error { background: var(--danger); }
+.status-label { font-size: .8rem; font-weight: 500; }
+.status-label.ok { color: var(--success); }
+.status-label.error { color: var(--danger); }
+
+.unit-plot { margin-top: .6rem; border-radius: 8px; overflow: hidden; }
+.unit-plot-controls { display: flex; gap: .5rem; }
