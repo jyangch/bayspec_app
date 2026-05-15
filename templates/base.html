@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}BaySpec{% endblock %}</title>
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js"></script>
+
+  <!-- App CSS -->
+  <link rel="stylesheet" href="/static/style.css" />
+
+  {% block head %}{% endblock %}
+</head>
+
+<body>
+  <!-- Sidebar -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <svg viewBox="0 0 240 64" xmlns="http://www.w3.org/2000/svg" aria-label="BaySpec">
+        <defs>
+          <linearGradient id="logo-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#4F46E5"/>
+            <stop offset="100%" stop-color="#06B6D4"/>
+          </linearGradient>
+          <linearGradient id="logo-text-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#0F172A"/>
+            <stop offset="100%" stop-color="#334155"/>
+          </linearGradient>
+        </defs>
+        <rect x="2" y="2" width="60" height="60" rx="14" fill="url(#logo-grad)"/>
+        <path d="M10 48 C 18 48 22 46 26 36 C 30 22 33 12 38 16 C 42 22 46 36 54 38"
+              stroke="#FFF" stroke-width="2.6" fill="none"
+              stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="22" cy="44" r="1.6" fill="#FFF"/>
+        <circle cx="32" cy="22" r="1.8" fill="#FFF"/>
+        <circle cx="44" cy="34" r="1.6" fill="#FFF"/>
+        <line x1="10" y1="50" x2="54" y2="50"
+              stroke="#FFF" stroke-opacity="0.45" stroke-width="1.4"
+              stroke-linecap="round"/>
+        <text x="78" y="42"
+              font-family="Inter, system-ui, sans-serif"
+              font-size="30" font-weight="800"
+              fill="url(#logo-text-grad)" letter-spacing="-1">BaySpec</text>
+      </svg>
+    </div>
+
+    <p class="sidebar-tagline">Bayesian spectral fitting workbench for high-energy astrophysics.</p>
+    <hr />
+
+    <nav>
+      <a href="/" class="{% if active_page == 'home' %}active{% endif %}">
+        <span class="nav-icon">🏠</span> Home
+      </a>
+      <a href="/data" class="{% if active_page == 'data' %}active{% endif %}">
+        <span class="nav-icon">🔭</span> Data
+      </a>
+      <a href="/model" class="{% if active_page == 'model' %}active{% endif %}">
+        <span class="nav-icon">🌈</span> Model
+      </a>
+      <a href="/infer" class="{% if active_page == 'infer' %}active{% endif %}">
+        <span class="nav-icon">📝</span> Inference
+      </a>
+    </nav>
+
+    {% block sidebar_extra %}{% endblock %}
+  </aside>
+
+  <!-- Main content area -->
+  <div id="layout">
+    <main id="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script src="/static/app.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
