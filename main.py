@@ -60,50 +60,102 @@ def _safe_key(key: str) -> str:
 
 
 def _parse_notc(notc_str: str):
+    """Parse Streamlit-style ``"8-30;40-1000"`` → list of [lo, hi]."""
     s = notc_str.strip()
     if not s:
         return None
-    windows = [w.strip() for w in s.split("|") if w.strip()]
+    windows = [w.strip() for w in s.split(";") if w.strip()]
     parsed = []
     for w in windows:
-        vals = [float(x) for x in w.split(",")]
-        if len(vals) != 2:
-            raise ValueError(f"Each window must be 'lo, hi', got: {w!r}")
-        parsed.append(vals)
+        rng = [x.strip() for x in w.split("-")]
+        if len(rng) != 2:
+            raise ValueError(f"Each window must be 'lo-hi', got: {w!r}")
+        parsed.append([float(rng[0]), float(rng[1])])
     return parsed[0] if len(parsed) == 1 else parsed
 
 
+def _parse_optional_int(val: Optional[str]) -> Optional[int]:
+    if val is None or val == "":
+        return None
+    return int(float(val))
+
+
+def _parse_optional_float(val: Optional[str]) -> Optional[float]:
+    if val is None or val == "":
+        return None
+    return float(val)
+
+
+def _build_grpg_rebn(min_evt, min_sigma, max_bin) -> Optional[dict]:
+    if min_evt is None and min_sigma is None and max_bin is None:
+        return None
+    return {"min_evt": min_evt, "min_sigma": min_sigma, "max_bin": max_bin}
+
+
+def _classify_spec_file(filename: str) -> Optional[str]:
+    """Map a filename to one of src/bkg/rsp/rmf/arf based on substring match."""
+    n = filename.lower()
+    if "rmf" in n:
+        return "rmf"
+    if "arf" in n:
+        return "arf"
+    if "rsp" in n or "resp" in n:
+        return "rsp"
+    if "bkg" in n or "bak" in n:
+        return "bkg"
+    if "src" in n or "pha" in n:
+        return "src"
+    return None
+
+
 def _counts_plot_div(unit) -> str:
+    """Counts spectrum (CE style): src + bkg + net as point + x/y error bars,
+    matching bayspec's Plot.dataunit visual."""
     import plotly.graph_objects as go
     import plotly.offline as pyo
 
-    x = unit.rsp_re_chbin_mean
-    y = unit.src_re_ctsspec
-    err = unit.src_re_ctsspec_error
+    x = unit.rsp_chbin_mean.astype(float)
+    half_w = unit.rsp_chbin_width.astype(float) / 2
+
+    def _err_x():
+        return dict(type="data", symmetric=False, array=half_w, arrayminus=half_w,
+                    thickness=1.2, width=0)
+
+    def _err_y(arr):
+        return dict(type="data", array=arr, thickness=1.2, width=0)
 
     fig = go.Figure()
+
+    src_y = unit.src_ctsspec.astype(float)
+    src_e = unit.src_ctsspec_error.astype(float)
     fig.add_trace(go.Scatter(
-        x=x, y=y,
-        error_y=dict(type="data", array=err, visible=True, thickness=1, width=0),
-        mode="lines",
-        name="Source",
-        line=dict(color="#4F46E5", width=1.5),
+        x=x, y=src_y,
+        mode="markers", name="Source",
+        error_x=_err_x(), error_y=_err_y(src_e),
+        marker=dict(symbol="circle", size=3, color="#4F46E5"),
     ))
 
     try:
-        yb = unit.bkg_re_ctsspec
-        errb = unit.bkg_re_ctsspec_error
+        bkg_y = unit.bkg_ctsspec.astype(float)
+        bkg_e = unit.bkg_ctsspec_error.astype(float)
         fig.add_trace(go.Scatter(
-            x=x, y=yb,
-            error_y=dict(type="data", array=errb, visible=True, thickness=1, width=0),
-            mode="lines",
-            name="Background",
-            line=dict(color="#94A3B8", width=1, dash="dot"),
+            x=x, y=bkg_y,
+            mode="markers", name="Background",
+            error_x=_err_x(), error_y=_err_y(bkg_e),
+            marker=dict(symbol="circle", size=3, color="#94A3B8"),
         ))
-        fig.update_layout(
-            showlegend=True,
-            legend=dict(x=0.02, y=0.98, xanchor="left", yanchor="top"),
-        )
+    except Exception:
+        pass
+
+    try:
+        net_y = unit.net_ctsspec.astype(float)
+        net_e = unit.net_ctsspec_error.astype(float)
+        fig.add_trace(go.Scatter(
+            x=x, y=net_y,
+            mode="markers", name="Net",
+            error_x=_err_x(), error_y=_err_y(net_e),
+            marker=dict(symbol="circle", size=3, color="#10B981"),
+        ))
     except Exception:
         pass
 
@@ -111,8 +163,10 @@ def _counts_plot_div(unit) -> str:
         xaxis=dict(title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"),
         yaxis=dict(title="Counts s⁻¹ keV⁻¹", type="log", showgrid=True, gridcolor="#F1F5F9"),
         template="simple_white",
-        margin=dict(l=60, r=20, t=20, b=50),
-        height=300,
+        margin=dict(l=65, r=20, t=20, b=50),
+        height=460,
+        showlegend=True,
+        legend=dict(x=0.98, y=0.98, xanchor="right", yanchor="top"),
         font=dict(family="Inter, system-ui, sans-serif", size=12, color="#0F172A"),
         paper_bgcolor="#FFFFFF",
         plot_bgcolor="#FFFFFF",
@@ -148,26 +202,108 @@ async def editor_page(request: Request):
     return _render("editor.html", request)
 
 
+# ── Data helpers ───────────────────────────────────────────────────────────────
+
+def _render_container_list(request: Request):
+    _, s, _ = _session(request)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/data_container_list.html",
+        context={"s": s},
+    )
+
+
+def _render_container(data_key: str, request: Request):
+    _, s, _ = _session(request)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/data_container.html",
+        context={"s": s, "data_key": data_key},
+    )
+
+
 # ── Data API routes ────────────────────────────────────────────────────────────
 
-@app.post("/data/units", response_class=HTMLResponse)
-async def add_unit(
+@app.post("/data/containers", response_class=HTMLResponse)
+async def create_container(request: Request, data_key: str = Form("")):
+    sid, s, is_new = _session(request)
+    requested = _safe_key(data_key.strip())
+    if not requested:
+        n = len(s["data"]) + 1
+        while f"Data{n}" in s["data"]:
+            n += 1
+        requested = f"Data{n}"
+    if requested in s["data"]:
+        # Idempotent: silently ignore duplicate creation
+        resp = _render_container_list(request)
+    else:
+        from bayspec.data.data import Data
+        s["data"][requested] = Data()
+        s["data_state"][requested] = {"model_binding": None, "units": {}}
+        resp = _render_container_list(request)
+    if is_new:
+        resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite="lax")
+    return resp
+
+
+@app.delete("/data/containers/{data_key}", response_class=HTMLResponse)
+async def delete_container(data_key: str, request: Request):
+    sid, s, _ = _session(request)
+    s["data"].pop(data_key, None)
+    s["data_state"].pop(data_key, None)
+
+    import shutil
+    container_dir = UPLOAD_DIR / sid / data_key
+    if container_dir.exists():
+        shutil.rmtree(container_dir, ignore_errors=True)
+
+    return _render_container_list(request)
+
+
+@app.post("/data/containers/{data_key}/bind", response_class=HTMLResponse)
+async def bind_model(data_key: str, request: Request, model_key: str = Form("")):
+    _, s, _ = _session(request)
+    if data_key not in s["data_state"]:
+        s["data_state"][data_key] = {"model_binding": None, "units": {}}
+    s["data_state"][data_key]["model_binding"] = model_key or None
+    return _render_container(data_key, request)
+
+
+@app.post("/data/containers/{data_key}/units", response_class=HTMLResponse)
+async def add_unit_to_container(
+    data_key: str,
     request: Request,
-    unit_key: str = Form(...),
-    src: UploadFile = File(...),
+    unit_key: str = Form(""),
+    spec_files: list[UploadFile] = File([]),
+    src: Optional[UploadFile] = File(None),
     bkg: Optional[UploadFile] = File(None),
     rsp: Optional[UploadFile] = File(None),
     rmf: Optional[UploadFile] = File(None),
     arf: Optional[UploadFile] = File(None),
     stat: str = Form("pgstat"),
     notc_str: str = Form(""),
-    min_sigma: Optional[float] = Form(None),
-    max_bin: Optional[int] = Form(None),
+    grpg_min_evt: Optional[str] = Form(None),
+    grpg_min_sigma: Optional[str] = Form(None),
+    grpg_max_bin: Optional[str] = Form(None),
+    rebn_min_evt: Optional[str] = Form(None),
+    rebn_min_sigma: Optional[str] = Form(None),
+    rebn_max_bin: Optional[str] = Form(None),
+    time: Optional[str] = Form(None),
 ):
-    sid, s, is_new = _session(request)
-    key = _safe_key(unit_key) or "unit"
+    sid, s, _ = _session(request)
+    if data_key not in s["data"]:
+        return HTMLResponse("<p class='alert alert-warning'>Container not found.</p>")
+    container = s["data"][data_key]
+    dst = s["data_state"].setdefault(data_key, {"model_binding": None, "units": {}})
 
-    unit_dir = UPLOAD_DIR / sid / key
+    requested = _safe_key(unit_key.strip())
+    if not requested:
+        n = len(container.data) + 1
+        while f"unit{n}" in container.data:
+            n += 1
+        requested = f"unit{n}"
+
+    unit_dir = UPLOAD_DIR / sid / data_key / requested
     unit_dir.mkdir(parents=True, exist_ok=True)
 
     async def _save(upload: Optional[UploadFile]) -> Optional[str]:
@@ -177,85 +313,107 @@ async def add_unit(
         path.write_bytes(await upload.read())
         return str(path)
 
-    paths = {
-        "src": await _save(src),
-        "bkg": await _save(bkg),
-        "rsp": await _save(rsp),
-        "rmf": await _save(rmf),
-        "arf": await _save(arf),
-    }
+    paths: dict[str, Optional[str]] = {"src": None, "bkg": None, "rsp": None, "rmf": None, "arf": None}
 
-    error = None
-    if paths["src"]:
-        try:
-            notc = _parse_notc(notc_str)
-            rebn = {}
-            if min_sigma is not None:
-                rebn["min_sigma"] = min_sigma
-            if max_bin is not None:
-                rebn["max_bin"] = int(max_bin)
+    # Batch upload: classify by filename
+    for f in spec_files or []:
+        if not f or not f.filename:
+            continue
+        kind = _classify_spec_file(f.filename)
+        if kind and paths[kind] is None:
+            paths[kind] = await _save(f)
 
-            from bayspec.data.data import DataUnit
-            du = DataUnit(
-                src=paths["src"],
-                bkg=paths["bkg"],
-                rsp=paths["rsp"],
-                rmf=paths["rmf"],
-                arf=paths["arf"],
-                stat=stat,
-                notc=notc,
-                rebn=rebn or None,
-            )
-            s["data"][key] = du
-        except Exception as exc:
-            error = str(exc)
-    else:
-        error = "Source file is required."
+    # Per-slot uploads override / fill remaining
+    for kind, upload in (("src", src), ("bkg", bkg), ("rsp", rsp), ("rmf", rmf), ("arf", arf)):
+        saved = await _save(upload)
+        if saved is not None:
+            paths[kind] = saved
 
-    s["data_state"][key] = {
+    # Build form-state mirror (so the UI can show what was submitted)
+    form_state = {
+        "src_path": paths["src"],
+        "bkg_path": paths["bkg"],
+        "rsp_path": paths["rsp"],
+        "rmf_path": paths["rmf"],
+        "arf_path": paths["arf"],
         "stat": stat,
         "notc_str": notc_str,
-        "min_sigma": min_sigma,
-        "max_bin": max_bin,
-        "error": error,
+        "grpg_min_evt": grpg_min_evt,
+        "grpg_min_sigma": grpg_min_sigma,
+        "grpg_max_bin": grpg_max_bin,
+        "rebn_min_evt": rebn_min_evt,
+        "rebn_min_sigma": rebn_min_sigma,
+        "rebn_max_bin": rebn_max_bin,
+        "time": time,
+        "error": None,
     }
 
-    resp = templates.TemplateResponse(
-        request=request, name="partials/unit_list.html", context={"s": s}
-    )
-    if is_new:
-        resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite="lax")
-    return resp
+    if paths["src"] is None:
+        form_state["error"] = "Source file (src) is required."
+        dst["units"][requested] = form_state
+        return _render_container(data_key, request)
+
+    try:
+        notc = _parse_notc(notc_str)
+        grpg = _build_grpg_rebn(
+            _parse_optional_int(grpg_min_evt),
+            _parse_optional_float(grpg_min_sigma),
+            _parse_optional_int(grpg_max_bin),
+        )
+        rebn = _build_grpg_rebn(
+            _parse_optional_int(rebn_min_evt),
+            _parse_optional_float(rebn_min_sigma),
+            _parse_optional_int(rebn_max_bin),
+        )
+        time_val = _parse_optional_float(time)
+
+        from bayspec.data.data import DataUnit
+        du = DataUnit(
+            src=paths["src"],
+            bkg=paths["bkg"],
+            rsp=paths["rsp"],
+            rmf=paths["rmf"],
+            arf=paths["arf"],
+            stat=stat,
+            notc=notc,
+            grpg=grpg,
+            rebn=rebn,
+            time=time_val,
+        )
+        du.name = requested
+        container[requested] = du
+    except Exception as exc:
+        form_state["error"] = str(exc)
+
+    dst["units"][requested] = form_state
+    return _render_container(data_key, request)
 
 
-@app.delete("/data/units/{key}", response_class=HTMLResponse)
-async def delete_unit(key: str, request: Request):
-    sid, s, is_new = _session(request)
-    s["data"].pop(key, None)
-    s["data_state"].pop(key, None)
+@app.delete("/data/containers/{data_key}/units/{unit_key}", response_class=HTMLResponse)
+async def delete_unit_from_container(data_key: str, unit_key: str, request: Request):
+    sid, s, _ = _session(request)
+    container = s["data"].get(data_key)
+    if container is not None and unit_key in container:
+        del container[unit_key]
+    s["data_state"].get(data_key, {}).get("units", {}).pop(unit_key, None)
 
     import shutil
-    unit_dir = UPLOAD_DIR / sid / key
+    unit_dir = UPLOAD_DIR / sid / data_key / unit_key
     if unit_dir.exists():
-        shutil.rmtree(unit_dir)
+        shutil.rmtree(unit_dir, ignore_errors=True)
 
-    resp = templates.TemplateResponse(
-        request=request, name="partials/unit_list.html", context={"s": s}
-    )
-    if is_new:
-        resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite="lax")
-    return resp
+    return _render_container(data_key, request)
 
 
-@app.get("/data/units/{key}/plot", response_class=HTMLResponse)
-async def unit_plot(key: str, request: Request):
-    sid, s, _ = _session(request)
-    du = s["data"].get(key)
+@app.get("/data/containers/{data_key}/units/{unit_key}/plot", response_class=HTMLResponse)
+async def unit_plot(data_key: str, unit_key: str, request: Request):
+    _, s, _ = _session(request)
+    container = s["data"].get(data_key)
+    du = container.data.get(unit_key) if container is not None else None
     if du is None:
         return HTMLResponse("<p class='alert alert-warning'>Unit not found.</p>")
     try:
-        div = _counts_plot_div(du)
-        return HTMLResponse(div)
+        return HTMLResponse(_counts_plot_div(du))
     except Exception as exc:
         return HTMLResponse(f"<p class='alert alert-danger'>Plot error: {exc}</p>")
 

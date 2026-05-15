@@ -7,13 +7,15 @@ _sessions: dict[str, dict[str, Any]] = {}
 
 def _new() -> dict[str, Any]:
     return {
-        "data": {},          # {unit_key: DataUnit}
-        "data_state": {},    # {unit_key: {field: value}} — widget state mirror
-        "model": {},         # {model_key: Model}
-        "model_component": {},  # {model_key: {comp_key: component}}
-        "model_state": {},   # {model_key: {comp_key: {field: value}}}
-        "infer": None,       # BayesInfer | None
-        "infer_state": {     # UI + run config
+        # {data_key: bayspec.data.data.Data}  — Data container holds {unit_key: DataUnit}
+        "data": {},
+        # {data_key: {"model_binding": str|None, "units": {unit_key: {form fields, error}}}}
+        "data_state": {},
+        "model": {},
+        "model_component": {},
+        "model_state": {},
+        "infer": None,
+        "infer_state": {
             "pairs": [],
             "sampler": "emcee",
             "nstep": 1000,
@@ -23,7 +25,7 @@ def _new() -> dict[str, Any]:
             "result": None,
             "error": None,
         },
-        "custom_models": {},    # {name: cls} registered this session
+        "custom_models": {},
         "editor_state": {"status": None, "status_type": "success"},
     }
 

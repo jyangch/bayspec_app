@@ -1,0 +1,198 @@
+{% set d = s.data[data_key] %}
+{% set dst = s.data_state.get(data_key, {"model_binding": none, "units": {}}) %}
+{% set units_state = dst.get("units", {}) %}
+
+<div class="card data-container" id="data-container-{{ data_key }}" style="margin-bottom:1rem">
+
+  <!-- Header: name + bind + delete -->
+  <div class="data-container-header" style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+    <span class="unit-badge" style="font-size:.95rem">{{ data_key }}</span>
+    <span class="caption">{{ d.data|length }} unit{{ '' if d.data|length == 1 else 's' }}</span>
+
+    <form style="margin-left:auto;display:flex;align-items:center;gap:.4rem"
+          hx-post="/data/containers/{{ data_key }}/bind"
+          hx-target="#data-container-{{ data_key }}"
+          hx-swap="outerHTML"
+          hx-trigger="change">
+      <label class="caption" style="margin:0">bind model:</label>
+      <select name="model_key" class="param-select">
+        <option value="">— none —</option>
+        {% for mk in s.model.keys() %}
+          <option value="{{ mk }}" {% if dst.get('model_binding') == mk %}selected{% endif %}>{{ mk }}</option>
+        {% endfor %}
+      </select>
+    </form>
+
+    <button class="btn btn-sm btn-danger"
+            hx-delete="/data/containers/{{ data_key }}"
+            hx-target="#data-container-list"
+            hx-swap="outerHTML"
+            hx-confirm="Delete container {{ data_key }} and all its units?">
+      ✕
+    </button>
+  </div>
+
+  {% if not s.model %}
+    <p class="field-hint" style="margin-top:.4rem">No models defined yet — create one on the Model page to enable binding.</p>
+  {% endif %}
+
+  <!-- Existing units -->
+  {% if d.data or units_state %}
+  <div style="margin-top:.85rem">
+    {% for unit_key, du in d.data.items() %}
+      {% set ust = units_state.get(unit_key, {}) %}
+      <details class="expander" style="margin-bottom:.55rem">
+        <summary>
+          <span class="unit-badge">{{ unit_key }}</span>
+          <span class="caption" style="margin-left:.4rem">[{{ ust.get('stat', du.stat) }}]</span>
+          <span class="status-dot ok" style="margin-left:.4rem"></span>
+          <span class="status-label ok">loaded</span>
+        </summary>
+        <div class="expander-body">
+          <table class="info-table">
+            <thead><tr><th>Property</th><th>Value</th></tr></thead>
+            <tbody>
+              {% set idict = du.info.data_dict %}
+              {% for prop, val in zip(idict["Property"], idict[unit_key]) %}
+              <tr>
+                <td><code>{{ prop }}</code></td>
+                <td>{{ val if val is not none else "—" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+
+          <div style="margin-top:.6rem;display:flex;gap:.4rem;align-items:center">
+            <button class="btn btn-sm"
+                    hx-get="/data/containers/{{ data_key }}/units/{{ unit_key }}/plot"
+                    hx-target="#plot-{{ data_key }}-{{ unit_key }}"
+                    hx-swap="innerHTML"
+                    hx-indicator="#sp-{{ data_key }}-{{ unit_key }}">
+              📊 Show counts spectrum
+              <span id="sp-{{ data_key }}-{{ unit_key }}" class="htmx-indicator"><span class="spinner"></span></span>
+            </button>
+            <button class="btn btn-sm btn-danger"
+                    style="margin-left:auto"
+                    hx-delete="/data/containers/{{ data_key }}/units/{{ unit_key }}"
+                    hx-target="#data-container-{{ data_key }}"
+                    hx-swap="outerHTML"
+                    hx-confirm="Remove unit {{ unit_key }}?">
+              ✕ Remove unit
+            </button>
+          </div>
+          <div id="plot-{{ data_key }}-{{ unit_key }}" class="unit-plot"></div>
+        </div>
+      </details>
+    {% endfor %}
+
+    {# Failed units: present in state but never made it into the container #}
+    {% for unit_key, ust in units_state.items() %}
+      {% if unit_key not in d.data %}
+      <details class="expander" style="margin-bottom:.55rem" open>
+        <summary>
+          <span class="unit-badge">{{ unit_key }}</span>
+          <span class="status-dot error" style="margin-left:.4rem"></span>
+          <span class="status-label error">failed</span>
+        </summary>
+        <div class="expander-body">
+          <div class="alert alert-danger">{{ ust.get('error', 'Unknown error.') }}</div>
+          <button class="btn btn-sm btn-danger"
+                  hx-delete="/data/containers/{{ data_key }}/units/{{ unit_key }}"
+                  hx-target="#data-container-{{ data_key }}"
+                  hx-swap="outerHTML">
+            ✕ Discard
+          </button>
+        </div>
+      </details>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Add unit form -->
+  <details class="form-details" style="margin-top:.85rem" {% if not d.data %}open{% endif %}>
+    <summary>+ Add unit to {{ data_key }}</summary>
+    <div class="form-details-body">
+      <form
+        hx-post="/data/containers/{{ data_key }}/units"
+        hx-target="#data-container-{{ data_key }}"
+        hx-swap="outerHTML"
+        hx-encoding="multipart/form-data"
+        hx-indicator="#add-spinner-{{ data_key }}"
+        enctype="multipart/form-data"
+        onsubmit="setTimeout(()=>this.reset(), 0)"
+      >
+        <div class="form-group">
+          <label>Unit name</label>
+          <input type="text" name="unit_key" placeholder="auto: unit{{ d.data|length + 1 }}" />
+        </div>
+
+        <div class="form-group">
+          <label>Spectra batch upload <span class="caption">(auto-detect by filename)</span></label>
+          <input type="file" name="spec_files" multiple />
+          <p class="field-hint">Filenames containing src/pha → src · bkg/bak → bkg · rsp/resp → rsp · rmf · arf.</p>
+        </div>
+
+        <details class="form-details">
+          <summary>Or upload files individually</summary>
+          <div class="form-details-body">
+            <div class="form-group"><label>Source spectrum (src)</label><input type="file" name="src" /></div>
+            <div class="form-group"><label>Background (bkg)</label><input type="file" name="bkg" /></div>
+            <div class="form-group"><label>Response (rsp)</label><input type="file" name="rsp" /></div>
+            <div class="form-group"><label>RMF</label><input type="file" name="rmf" /></div>
+            <div class="form-group"><label>ARF</label><input type="file" name="arf" /></div>
+          </div>
+        </details>
+
+        <div class="form-group">
+          <label>Fit statistic (stat)</label>
+          <select name="stat">
+            {% for opt in ["pgstat", "pstat", "cstat", "gstat", "chi2", "ppstat", "Xppstat", "Xcstat", "Xpgstat", "ULppstat", "ULpgstat"] %}
+              <option value="{{ opt }}" {% if opt == 'pgstat' %}selected{% endif %}>{{ opt }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Notice windows (notc)</label>
+          <input type="text" name="notc_str" placeholder="8-30;40-1000" />
+          <p class="field-hint">Format: <code>lo-hi</code> separated by <code>;</code></p>
+        </div>
+
+        <details class="form-details">
+          <summary>Grouping (grpg)</summary>
+          <div class="form-details-body">
+            <div class="form-row-3">
+              <div class="form-group"><label>min_evt</label><input type="number" name="grpg_min_evt" step="1" /></div>
+              <div class="form-group"><label>min_sigma</label><input type="number" name="grpg_min_sigma" step="0.1" /></div>
+              <div class="form-group"><label>max_bin</label><input type="number" name="grpg_max_bin" step="1" /></div>
+            </div>
+          </div>
+        </details>
+
+        <details class="form-details">
+          <summary>Rebinning (rebn)</summary>
+          <div class="form-details-body">
+            <div class="form-row-3">
+              <div class="form-group"><label>min_evt</label><input type="number" name="rebn_min_evt" step="1" /></div>
+              <div class="form-group"><label>min_sigma</label><input type="number" name="rebn_min_sigma" step="0.1" /></div>
+              <div class="form-group"><label>max_bin</label><input type="number" name="rebn_max_bin" step="1" /></div>
+            </div>
+          </div>
+        </details>
+
+        <div class="form-group">
+          <label>Spectral time (optional)</label>
+          <input type="number" name="time" step="any" placeholder="for time-dependent models" />
+        </div>
+
+        <div class="form-footer">
+          <button type="submit" class="btn btn-primary">
+            + Add unit
+            <span id="add-spinner-{{ data_key }}" class="htmx-indicator"><span class="spinner"></span></span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </details>
+</div>

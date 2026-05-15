@@ -1,0 +1,13 @@
+<div id="data-container-list">
+{% if not s.data %}
+  <div class="empty-state">
+    <div class="empty-icon">🔭</div>
+    <div class="empty-title">No Data containers yet</div>
+    <p>Create one above to start adding spectral units.</p>
+  </div>
+{% else %}
+  {% for data_key in s.data.keys() %}
+    {% include "partials/data_container.html" %}
+  {% endfor %}
+{% endif %}
+</div>
