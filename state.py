@@ -12,8 +12,17 @@ def _new() -> dict[str, Any]:
         "model": {},         # {model_key: Model}
         "model_component": {},  # {model_key: {comp_key: component}}
         "model_state": {},   # {model_key: {comp_key: {field: value}}}
-        "infer": None,       # BayesInfer | MaxLikeFit | None
-        "infer_state": {},   # {field: value}
+        "infer": None,       # BayesInfer | None
+        "infer_state": {     # UI + run config
+            "pairs": [],
+            "sampler": "emcee",
+            "nstep": 1000,
+            "discard": 100,
+            "nlive": 400,
+            "savepath": "./infer_out",
+            "result": None,
+            "error": None,
+        },
     }
 
 

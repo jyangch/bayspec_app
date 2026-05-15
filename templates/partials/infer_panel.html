@@ -1,0 +1,122 @@
+{% set ist = s.infer_state %}
+
+<div id="infer-panel">
+
+{% if not ist.get("pairs") %}
+  <div class="empty-state">
+    <div class="empty-icon">⚡</div>
+    <div class="empty-title">No pairs yet</div>
+    <p>Select a data unit and model on the left, then click <b>+ Add pair</b>.</p>
+  </div>
+
+{% else %}
+
+  <!-- ── Pair list ── -->
+  <div class="card" style="margin-bottom:1rem">
+    <h3 style="margin-top:0;margin-bottom:.75rem">Pairs</h3>
+    {% for pair in ist.get("pairs", []) %}
+    <div class="infer-pair-row">
+      <span class="unit-badge">{{ pair.data }}</span>
+      <span class="infer-arrow">→</span>
+      <span class="unit-badge model-badge">{{ pair.model }}</span>
+      <button class="btn btn-sm btn-danger"
+              style="margin-left:auto"
+              hx-delete="/infer/pairs/{{ loop.index0 }}"
+              hx-target="#infer-panel"
+              hx-swap="outerHTML"
+              hx-confirm="Remove this pair?">
+        ✕
+      </button>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ── Sampler config + run ── -->
+  <div class="card" style="margin-bottom:1rem">
+    <h3 style="margin-top:0;margin-bottom:.75rem">Run</h3>
+    <form hx-post="/infer/run"
+          hx-target="#infer-panel"
+          hx-swap="outerHTML"
+          hx-indicator="#run-spinner">
+
+      <div class="form-group">
+        <label>Sampler</label>
+        <select name="sampler" id="sampler-select"
+                onchange="updateSamplerFields(this.value)">
+          <option value="emcee"
+            {% if ist.get('sampler','emcee') == 'emcee' %}selected{% endif %}>
+            emcee (MCMC)
+          </option>
+          <option value="multinest"
+            {% if ist.get('sampler') == 'multinest' %}selected{% endif %}>
+            multinest (Nested Sampling)
+          </option>
+        </select>
+      </div>
+
+      <div id="emcee-fields"
+           {% if ist.get('sampler') == 'multinest' %}style="display:none"{% endif %}>
+        <div class="form-row">
+          <div class="form-group">
+            <label>nstep</label>
+            <input type="number" name="nstep"
+                   value="{{ ist.get('nstep', 1000) }}" min="1" step="1" />
+          </div>
+          <div class="form-group">
+            <label>discard</label>
+            <input type="number" name="discard"
+                   value="{{ ist.get('discard', 100) }}" min="0" step="1" />
+          </div>
+        </div>
+      </div>
+
+      <div id="multinest-fields"
+           {% if ist.get('sampler', 'emcee') != 'multinest' %}style="display:none"{% endif %}>
+        <div class="form-group">
+          <label>nlive</label>
+          <input type="number" name="nlive"
+                 value="{{ ist.get('nlive', 400) }}" min="50" step="1" />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Save path</label>
+        <input type="text" name="savepath"
+               value="{{ ist.get('savepath', './infer_out') }}" />
+        <p class="field-hint">Directory for sampler output files.</p>
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%">
+        ▶ Run
+        <span id="run-spinner" class="htmx-indicator"><span class="spinner"></span></span>
+      </button>
+      <p class="field-hint" style="margin-top:.5rem">
+        Runs synchronously — large <code>nstep</code> values will block until complete.
+        SSE-based progress tracking is coming in Round 5.
+      </p>
+    </form>
+  </div>
+
+  <!-- ── Error ── -->
+  {% if ist.get("error") %}
+    <div class="alert alert-danger">{{ ist.error }}</div>
+  {% endif %}
+
+  <!-- ── Results ── -->
+  {% if ist.get("result") %}
+    <div class="card infer-results">
+      <h3 style="margin-top:0;margin-bottom:.75rem">Results</h3>
+      {{ ist.result | safe }}
+    </div>
+  {% endif %}
+
+{% endif %}
+
+</div>
+
+<script>
+function updateSamplerFields(val) {
+  document.getElementById('emcee-fields').style.display = val === 'emcee' ? '' : 'none';
+  document.getElementById('multinest-fields').style.display = val === 'multinest' ? '' : 'none';
+}
+</script>

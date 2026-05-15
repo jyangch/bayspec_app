@@ -446,3 +446,137 @@ async def model_plot(mkey: str, request: Request):
     if model is None:
         return HTMLResponse("<p class='alert alert-warning'>Compose the model first.</p>")
     return HTMLResponse(_model_plot_div(model))
+
+
+# ── Inference helpers ──────────────────────────────────────────────────────────
+
+def _posterior_html(post) -> str:
+    """Return HTML fragment with parameter CI table + stat table."""
+    fp = post.free_par_info.data_dict
+    par_rows = "".join(
+        f"<tr><td class='param-name'>{par}</td>"
+        f"<td>{best:.4g}</td>"
+        f"<td><code>{ci}</code></td>"
+        f"<td>{mean:.4g}</td>"
+        f"<td>{med:.4g}</td></tr>"
+        for par, best, ci, mean, med in zip(
+            fp["Parameter"], fp["Best"], fp["1sigma CI"], fp["Mean"], fp["Median"]
+        )
+    )
+    par_html = (
+        "<div class='param-section-label' style='margin-bottom:.4rem'>Parameters</div>"
+        "<table class='param-table'>"
+        "<thead><tr><th>Parameter</th><th>Best</th><th>1σ CI</th>"
+        "<th>Mean</th><th>Median</th></tr></thead>"
+        f"<tbody>{par_rows}</tbody></table>"
+    )
+
+    si = post.stat_info.data_dict
+    stat_rows = "".join(
+        f"<tr><td class='param-name'>{d}</td><td>{m}</td>"
+        f"<td>{stat}</td><td>{v}</td><td>{b}</td></tr>"
+        for d, m, stat, v, b in zip(
+            si["Data"], si["Model"], si["Statistic"], si["Value"], si["Bins"]
+        )
+    )
+    stat_html = (
+        "<div class='param-section-label' style='margin:.75rem 0 .4rem'>Statistics</div>"
+        "<table class='param-table'>"
+        "<thead><tr><th>Data</th><th>Model</th><th>Statistic</th>"
+        "<th>Value</th><th>Bins</th></tr></thead>"
+        f"<tbody>{stat_rows}</tbody></table>"
+    )
+
+    lnz_html = ""
+    try:
+        lnz = post.lnZ
+        if lnz is not None:
+            lnz_html = f"<p class='caption' style='margin-top:.6rem'>ln Z = {lnz:.3f}</p>"
+    except Exception:
+        pass
+
+    return par_html + stat_html + lnz_html
+
+
+def _render_infer_panel(request: Request):
+    _, s, _ = _session(request)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/infer_panel.html",
+        context={"s": s},
+    )
+
+
+# ── Inference API routes ───────────────────────────────────────────────────────
+
+@app.post("/infer/pairs", response_class=HTMLResponse)
+async def add_infer_pair(
+    request: Request,
+    data_key: str = Form(...),
+    model_key: str = Form(...),
+):
+    _, s, _ = _session(request)
+    ist = s["infer_state"]
+    ist.setdefault("pairs", [])
+    ist["pairs"].append({"data": data_key, "model": model_key})
+    return _render_infer_panel(request)
+
+
+@app.delete("/infer/pairs/{idx}", response_class=HTMLResponse)
+async def delete_infer_pair(idx: int, request: Request):
+    _, s, _ = _session(request)
+    pairs = s["infer_state"].get("pairs", [])
+    if 0 <= idx < len(pairs):
+        pairs.pop(idx)
+    return _render_infer_panel(request)
+
+
+@app.post("/infer/run", response_class=HTMLResponse)
+async def run_infer(
+    request: Request,
+    sampler: str = Form("emcee"),
+    nstep: int = Form(1000),
+    discard: int = Form(100),
+    nlive: int = Form(400),
+    savepath: str = Form("./infer_out"),
+):
+    _, s, _ = _session(request)
+    ist = s["infer_state"]
+    ist.update({
+        "sampler": sampler, "nstep": nstep, "discard": discard,
+        "nlive": nlive, "savepath": savepath, "result": None, "error": None,
+    })
+
+    pairs = ist.get("pairs", [])
+    if not pairs:
+        ist["error"] = "Add at least one (data, model) pair before running."
+        return _render_infer_panel(request)
+
+    try:
+        from bayspec.data.data import Data
+        from bayspec.infer.infer import BayesInfer
+
+        infer_pairs = []
+        for p in pairs:
+            du = s["data"].get(p["data"])
+            m = s["model"].get(p["model"])
+            if du is None:
+                raise ValueError(f"Data unit '{p['data']}' not found.")
+            if m is None:
+                raise ValueError(f"Model '{p['model']}' not yet composed.")
+            infer_pairs.append((Data(data=[(p["data"], du)]), m))
+
+        bi = BayesInfer(pairs=infer_pairs)
+        s["infer"] = bi
+
+        Path(savepath).mkdir(parents=True, exist_ok=True)
+        if sampler == "emcee":
+            post = bi.emcee(nstep=nstep, discard=discard, savepath=savepath)
+        else:
+            post = bi.multinest(nlive=nlive, savepath=savepath)
+
+        ist["result"] = _posterior_html(post)
+    except Exception as exc:
+        ist["error"] = str(exc)
+
+    return _render_infer_panel(request)
