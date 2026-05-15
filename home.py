@@ -1,11 +1,10 @@
 import streamlit as st
 
-
-css='''
+css = """
 <style>
     section.main > div {max-width:75rem}
 </style>
-'''
+"""
 st.markdown(css, unsafe_allow_html=True)
 
 readme = """

@@ -49,3 +49,7 @@ Icon?
 *.egg-info/
 build/
 dist/
+
+# Local-only docs and Claude Code project config
+docs/
+CLAUDE.md

@@ -1,5 +1,5 @@
-import streamlit as st
 from st_pages import add_page_title, get_nav_from_toml
+import streamlit as st
 
 
 def init_session_state():
@@ -19,7 +19,7 @@ def init_session_state():
         st.session_state.infer_state = {}
 
 
-st.set_page_config(layout="wide")
+st.set_page_config(layout='wide')
 
 nav = get_nav_from_toml('.streamlit/pages.toml')
 

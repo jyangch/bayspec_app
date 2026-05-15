@@ -1,74 +1,73 @@
 from collections import OrderedDict
-from bayspec.util.prior import unif
+
 from bayspec.model.model import Model
-from bayspec.util.param import Par, Cfg
-#+++++++editable area+++++++
+from bayspec.util.param import Cfg, Par
+from bayspec.util.prior import unif
+
+# +++++++editable area+++++++
 # import other package
-#+++++++editable area+++++++
+# +++++++editable area+++++++
 
 
 class user(Model):
-
     def __init__(self):
         super().__init__()
-        
-        #+++++++editable area+++++++
+
+        # +++++++editable area+++++++
         # name of your model
         self.expr = 'model'
-        # type of your model, optional
-        # ('add', 'mul', 'tinv', 'math')
+        # type of your model, one of ('add', 'mul', 'math')
         self.type = 'add'
         # comment of your model
         self.comment = 'user-defined model'
-        #+++++++editable area+++++++
-        
+        # +++++++editable area+++++++
+
         self.params = OrderedDict()
-        #+++++++editable area+++++++
+        # +++++++editable area+++++++
         # set your model parameters
         self.params['p1'] = Par(1, unif(0, 2))
-        # above sentence define a parameter p1 
-        # with value of 1 
+        # above sentence define a parameter p1
+        # with value of 1
         # with prior of uniform within [0, 2]
-        #+++++++editable area+++++++
-        
+        # +++++++editable area+++++++
+
         self.config = OrderedDict()
-        #+++++++editable area+++++++
+        # +++++++editable area+++++++
         # set your model configuration
         self.config['redshift'] = Cfg(0)
-        # above sentence define redshift 
+        # above sentence define redshift
         # with value of 0
-        #+++++++editable area+++++++
+        # +++++++editable area+++++++
 
-
-    def func(self, E, T=None, O=None):
+    def func(self, E, T=None, O=None):  # noqa: E741
         """
         Parameters
         ----------
         E: energy array in keV
-        T: time array in second
-        O: useless now
+        T: time array in second (optional, used by time-dependent models)
+        O: nested model, used by convolution operators
         Returns
         -------
-        if type is add or tinv:
+        if type is 'add':
         photon spectrum N(E, T) in photons/cm2/s/keV
-        if type is mul or math:
+        if type is 'mul' or 'math':
         dimensionless F(E, T)
         """
 
-        #+++++++editable area+++++++
+        # +++++++editable area+++++++
         # get the value of model parameter
         p1 = self.params['p1'].value
-        #+++++++editable area+++++++
+        # +++++++editable area+++++++
 
-        #+++++++editable area+++++++
+        # +++++++editable area+++++++
         # apply the model configuration
-        zi = 1 + self.redshift
+        zi = 1 + self.config['redshift'].value
         E = E * zi
-        #+++++++editable area+++++++
+        # +++++++editable area+++++++
 
-        #+++++++editable area+++++++
+        # +++++++editable area+++++++
         # code your model
-        res = E ** p1 + T
-        #+++++++editable area+++++++
+        res = E**p1
+        # +++++++editable area+++++++
 
         return res
