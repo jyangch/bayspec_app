@@ -614,3 +614,30 @@ details[open] .comp-summary::before { transform: rotate(90deg); }
   color: var(--accent);
 }
 .infer-results { padding: 1.1rem 1.2rem; }
+
+/* Run progress */
+.run-log {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .55rem .8rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .83rem;
+  max-height: 200px;
+  min-height: 2rem;
+  overflow-y: auto;
+  margin-bottom: .75rem;
+}
+.log-line {
+  padding: .1rem 0;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-soft);
+}
+.log-line:last-child { border-bottom: none; }
+.run-status-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  color: var(--text-muted);
+  font-size: .9rem;
+}

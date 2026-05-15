@@ -1,10 +1,13 @@
+import asyncio
 import re
+import threading
+import uuid
 from pathlib import Path
 from typing import Optional
 
 import state
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -19,6 +22,8 @@ templates.env.globals["local_model_names"] = list(_local_models.keys())
 SESSION_COOKIE = "bsp_session"
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
+
+_tasks: dict[str, dict] = {}  # task_id → {status, messages, result_html, error}
 
 
 def _session(request: Request) -> tuple[str, dict, bool]:
@@ -507,6 +512,10 @@ def _render_infer_panel(request: Request):
     )
 
 
+def _render_infer_panel_str(s: dict) -> str:
+    return templates.env.get_template("partials/infer_panel.html").render(s=s)
+
+
 # ── Inference API routes ───────────────────────────────────────────────────────
 
 @app.post("/infer/pairs", response_class=HTMLResponse)
@@ -552,6 +561,7 @@ async def run_infer(
         ist["error"] = "Add at least one (data, model) pair before running."
         return _render_infer_panel(request)
 
+    # Validate all pairs and build BayesInfer before starting the thread
     try:
         from bayspec.data.data import Data
         from bayspec.infer.infer import BayesInfer
@@ -568,15 +578,101 @@ async def run_infer(
 
         bi = BayesInfer(pairs=infer_pairs)
         s["infer"] = bi
-
         Path(savepath).mkdir(parents=True, exist_ok=True)
-        if sampler == "emcee":
-            post = bi.emcee(nstep=nstep, discard=discard, savepath=savepath)
-        else:
-            post = bi.multinest(nlive=nlive, savepath=savepath)
-
-        ist["result"] = _posterior_html(post)
     except Exception as exc:
         ist["error"] = str(exc)
+        return _render_infer_panel(request)
 
-    return _render_infer_panel(request)
+    # Create task and launch sampler in background thread
+    task_id = str(uuid.uuid4())
+    _tasks[task_id] = {"status": "running", "messages": [], "result_html": None, "error": None}
+
+    def _worker():
+        task = _tasks[task_id]
+        try:
+            task["messages"].append(
+                f"BayesInfer ready — {len(infer_pairs)} pair(s), {bi.free_nparams} free parameter(s)"
+            )
+            if sampler == "emcee":
+                task["messages"].append(f"emcee: nstep={nstep}, discard={discard}")
+                post = bi.emcee(nstep=nstep, discard=discard, savepath=savepath)
+            else:
+                task["messages"].append(f"multinest: nlive={nlive}")
+                post = bi.multinest(nlive=nlive, savepath=savepath)
+            result = _posterior_html(post)
+            ist["result"] = result
+            ist["error"] = None
+            task["result_html"] = result
+            task["status"] = "done"
+            task["messages"].append("Sampling complete.")
+        except Exception as exc:
+            ist["error"] = str(exc)
+            task["error"] = str(exc)
+            task["status"] = "error"
+            task["messages"].append(f"Error: {exc}")
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+    running_html = (
+        f'<div id="infer-panel">'
+        f'<div class="card">'
+        f'<h3 style="margin-top:0;margin-bottom:.75rem">Running\u2026</h3>'
+        f'<div id="run-log" class="run-log"></div>'
+        f'<div class="run-status-row">'
+        f'<span class="spinner"></span>'
+        f'<span id="run-status-text">Connecting\u2026</span>'
+        f'</div>'
+        f'</div>'
+        f'</div>'
+        f'<script>'
+        f'(function(){{'
+        f'const log=document.getElementById("run-log");'
+        f'const st=document.getElementById("run-status-text");'
+        f'const es=new EventSource("/infer/stream/{task_id}");'
+        f'es.onmessage=function(e){{log.insertAdjacentHTML("beforeend",e.data);log.scrollTop=log.scrollHeight;st.textContent="Running\u2026";}};'
+        f'es.addEventListener("done",function(e){{es.close();document.getElementById("infer-panel").outerHTML=e.data;}});'
+        f'es.onerror=function(){{es.close();st.textContent="Stream error \u2014 refresh to see results.";}};'
+        f'}})();'
+        f'</script>'
+    )
+    return HTMLResponse(running_html)
+
+
+@app.get("/infer/stream/{task_id}")
+async def infer_stream(task_id: str, request: Request):
+    _, s, _ = _session(request)
+
+    async def generate():
+        sent = 0
+        while True:
+            if await request.is_disconnected():
+                break
+            task = _tasks.get(task_id)
+            if task is None:
+                panel = '<div id="infer-panel"><div class="alert alert-warning">Task not found.</div></div>'
+                yield f"event: done\ndata: {panel}\n\n"
+                break
+
+            messages = task["messages"]
+            while sent < len(messages):
+                safe = (messages[sent]
+                        .replace("&", "&amp;")
+                        .replace("<", "&lt;")
+                        .replace(">", "&gt;"))
+                sent += 1
+                yield f"data: <div class='log-line'>{safe}</div>\n\n"
+
+            if task["status"] in ("done", "error"):
+                panel_html = _render_infer_panel_str(s)
+                lines = panel_html.replace("\r\n", "\n").split("\n")
+                data_block = "\n".join(f"data: {line}" for line in lines)
+                yield f"event: done\n{data_block}\n\n"
+                break
+
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
