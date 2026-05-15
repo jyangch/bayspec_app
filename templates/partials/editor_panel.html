@@ -1,0 +1,29 @@
+{% set est = s.editor_state %}
+{% set custom = s.custom_models %}
+
+<div id="editor-panel">
+
+  {% if est.get("status") %}
+    <div class="alert alert-{{ est.status_type }}">{{ est.status }}</div>
+  {% endif %}
+
+  <div class="card">
+    <h3 style="margin-top:0;margin-bottom:.75rem">Custom Models</h3>
+    {% if not custom %}
+      <p class="field-hint">No custom models registered yet.</p>
+    {% else %}
+      <div class="custom-model-badges">
+        {% for name in custom.keys() %}
+          <span class="unit-badge">{{ name }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+
+  <div class="card" style="margin-top:1rem">
+    <h3 style="margin-top:0;margin-bottom:.5rem">Usage</h3>
+    <p class="caption">After registering, your model appears in the Model page's component dropdown immediately.</p>
+    <p class="caption">Subclass <code>Additive</code> or <code>Multiplicative</code>. Set <code>self.expr</code>, <code>self.config</code>, <code>self.params</code>, and implement <code>func(self, E)</code>.</p>
+  </div>
+
+</div>

@@ -143,6 +143,11 @@ async def infer_page(request: Request):
     return _render("infer.html", request)
 
 
+@app.get("/editor", response_class=HTMLResponse)
+async def editor_page(request: Request):
+    return _render("editor.html", request)
+
+
 # ── Data API routes ────────────────────────────────────────────────────────────
 
 @app.post("/data/units", response_class=HTMLResponse)
@@ -676,3 +681,53 @@ async def infer_stream(task_id: str, request: Request):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+
+# ── Editor helpers ─────────────────────────────────────────────────────────────
+
+def _render_editor_panel(request: Request):
+    _, s, _ = _session(request)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/editor_panel.html",
+        context={"s": s},
+    )
+
+
+# ── Editor API routes ──────────────────────────────────────────────────────────
+
+@app.post("/editor/register", response_class=HTMLResponse)
+async def register_model(request: Request, code: str = Form(...)):
+    _, s, _ = _session(request)
+    est = s["editor_state"]
+
+    from bayspec.model.model import Model
+
+    namespace: dict = {}
+    try:
+        exec(compile(code, "<user-model>", "exec"), namespace)  # noqa: S102
+    except SyntaxError as exc:
+        est.update({"status": f"Syntax error: {exc}", "status_type": "danger"})
+        return _render_editor_panel(request)
+    except Exception as exc:
+        est.update({"status": f"Runtime error: {exc}", "status_type": "danger"})
+        return _render_editor_panel(request)
+
+    new_classes = {
+        name: cls
+        for name, cls in namespace.items()
+        if isinstance(cls, type)
+        and issubclass(cls, Model)
+        and name not in ("Model", "Additive", "Multiplicative", "Mathematic")
+    }
+    if not new_classes:
+        est.update({"status": "No Model subclass found in the code.", "status_type": "warning"})
+        return _render_editor_panel(request)
+
+    _local_models.update(new_classes)
+    templates.env.globals["local_model_names"] = list(_local_models.keys())
+    s["custom_models"].update(new_classes)
+
+    names = ", ".join(new_classes.keys())
+    est.update({"status": f"Registered: {names}", "status_type": "success"})
+    return _render_editor_panel(request)

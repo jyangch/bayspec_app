@@ -23,6 +23,8 @@ def _new() -> dict[str, Any]:
             "result": None,
             "error": None,
         },
+        "custom_models": {},    # {name: cls} registered this session
+        "editor_state": {"status": None, "status_type": "success"},
     }
 
 

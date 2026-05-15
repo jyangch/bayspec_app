@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% set active_page = "editor" %}
+{% block title %}BaySpec — Model Editor{% endblock %}
+
+{% block head %}
+<!-- Default code for the editor (read by the module script below) -->
+<script id="default-code" type="text/plain">
+from collections import OrderedDict
+
+import numpy as np
+
+from bayspec.model.model import Additive
+from bayspec.util.param import Par
+from bayspec.util.prior import unif
+
+
+class mypl(Additive):
+    """A simple power-law example model."""
+
+    def __init__(self):
+        self.expr = 'mypl'
+        self.comment = 'example custom power law'
+        self.config = OrderedDict()
+        self.params = OrderedDict()
+        self.params['norm'] = Par(1.0, unif(-5, 5))
+        self.params['index'] = Par(-2.0, unif(-5, 0))
+
+    def func(self, E, T=None, O=None):
+        norm = 10 ** self.params['norm'].value
+        index = self.params['index'].value
+        return norm * np.asarray(E) ** index
+</script>
+{% endblock %}
+
+{% block content %}
+<h1>Model Editor</h1>
+<p class="page-subtitle">Write a custom spectral model class and register it for use on the Model page.</p>
+
+<div class="editor-layout">
+
+  <!-- ── Left: code editor + submit ── -->
+  <div class="editor-left">
+    <div class="card editor-card">
+      <div class="editor-header">
+        <span class="editor-label">Python</span>
+        <span class="caption">Define a subclass of <code>Additive</code> or <code>Multiplicative</code></span>
+      </div>
+      <div id="code-editor"></div>
+    </div>
+
+    <form id="register-form"
+          hx-post="/editor/register"
+          hx-target="#editor-panel"
+          hx-swap="outerHTML"
+          hx-indicator="#reg-spinner"
+          style="margin-top:.75rem;display:flex;align-items:center;gap:.75rem">
+      <input type="hidden" id="code-input" name="code" />
+      <button type="submit"
+              class="btn btn-primary"
+              onclick="document.getElementById('code-input').value = window.__cm_view ? window.__cm_view.state.doc.toString() : ''">
+        ⚡ Register model
+        <span id="reg-spinner" class="htmx-indicator"><span class="spinner"></span></span>
+      </button>
+      <span class="caption">The class will be available in the Model page dropdown immediately.</span>
+    </form>
+  </div>
+
+  <!-- ── Right: status + model list ── -->
+  {% include "partials/editor_panel.html" %}
+
+</div>
+
+<script type="module">
+import { EditorView, basicSetup } from 'https://esm.sh/codemirror@6';
+import { python } from 'https://esm.sh/@codemirror/lang-python';
+import { oneDark } from 'https://esm.sh/@codemirror/theme-one-dark';
+
+const defaultCode = document.getElementById('default-code').textContent.trimStart();
+
+const view = new EditorView({
+  doc: defaultCode,
+  extensions: [
+    basicSetup,
+    python(),
+    oneDark,
+    EditorView.theme({
+      '&': { height: '420px', fontSize: '13px' },
+      '.cm-scroller': { overflow: 'auto', fontFamily: "'JetBrains Mono', monospace" },
+    }),
+  ],
+  parent: document.getElementById('code-editor'),
+});
+
+window.__cm_view = view;
+</script>
+{% endblock %}
