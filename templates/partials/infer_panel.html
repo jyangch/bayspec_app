@@ -107,6 +107,30 @@
       <h3 style="margin-top:0;margin-bottom:.75rem">Results</h3>
       {{ ist.result | safe }}
     </div>
+
+    <div class="card" style="margin-top:1rem">
+      <h3 style="margin-top:0;margin-bottom:.75rem">Plots</h3>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
+        <button class="btn btn-sm"
+                hx-get="/infer/plots/corner"
+                hx-target="#plot-corner"
+                hx-swap="innerHTML"
+                hx-indicator="#spinner-corner">
+          📐 Corner
+          <span id="spinner-corner" class="htmx-indicator"><span class="spinner"></span></span>
+        </button>
+        <button class="btn btn-sm"
+                hx-get="/infer/plots/spectra"
+                hx-target="#plot-spectra"
+                hx-swap="innerHTML"
+                hx-indicator="#spinner-spectra">
+          📊 Fitted spectra
+          <span id="spinner-spectra" class="htmx-indicator"><span class="spinner"></span></span>
+        </button>
+      </div>
+      <div id="plot-corner"></div>
+      <div id="plot-spectra"></div>
+    </div>
   {% endif %}
 
 {% endif %}

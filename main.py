@@ -521,6 +521,92 @@ def _render_infer_panel_str(s: dict) -> str:
     return templates.env.get_template("partials/infer_panel.html").render(s=s)
 
 
+def _corner_plot_div(post) -> str:
+    import numpy as np
+    import plotly.graph_objects as go
+    import plotly.offline as pyo
+
+    samples = post.param_sample  # (n_samples, n_free_params)
+    param_names = post.free_par_info.data_dict["Parameter"]
+    n = len(param_names)
+    if n == 0:
+        return "<p class='alert alert-warning'>No free parameters for corner plot.</p>"
+
+    if len(samples) > 2000:
+        idx = np.random.default_rng(0).choice(len(samples), 2000, replace=False)
+        samples = samples[idx]
+
+    dims = [
+        {"label": name, "values": samples[:, i].tolist()}
+        for i, name in enumerate(param_names)
+    ]
+    fig = go.Figure(go.Splom(
+        dimensions=dims,
+        showupperhalf=False,
+        diagonal_visible=True,
+        marker=dict(size=2, color="rgba(79,70,229,0.3)"),
+    ))
+    fig.update_layout(
+        height=max(380, 160 * n),
+        margin=dict(l=60, r=20, t=20, b=60),
+        template="simple_white",
+        font=dict(family="Inter, system-ui, sans-serif", size=11, color="#0F172A"),
+        paper_bgcolor="#FFFFFF",
+    )
+    return pyo.plot(fig, output_type="div", include_plotlyjs=False)
+
+
+def _spectra_plot_div(post) -> str:
+    import plotly.graph_objects as go
+    import plotly.offline as pyo
+
+    post.at_par(post.par_best)
+
+    colors = ["#4F46E5", "#06B6D4", "#10B981", "#F59E0B", "#EF4444"]
+    fig = go.Figure()
+
+    for i, pair in enumerate(post.Pair):
+        color = colors[i % len(colors)]
+        x_list = pair.data.rsp_re_chbin_mean
+        y_data_list = pair.data.net_re_ctsspec
+        y_err_list = pair.data.net_re_ctsspec_error
+        y_model_list = pair.conv_re_ctsspec
+
+        for j, (x, y_d, y_e, y_m) in enumerate(
+            zip(x_list, y_data_list, y_err_list, y_model_list)
+        ):
+            suffix = f" [{i+1}]" if len(post.Pair) > 1 or len(x_list) > 1 else ""
+            if len(x_list) > 1:
+                suffix += f".{j+1}"
+            fig.add_trace(go.Scatter(
+                x=x, y=y_d,
+                error_y=dict(type="data", array=y_e, visible=True, thickness=1, width=0),
+                mode="lines",
+                name=f"data{suffix}",
+                line=dict(color=color, width=1.5),
+            ))
+            fig.add_trace(go.Scatter(
+                x=x, y=y_m,
+                mode="lines",
+                name=f"model{suffix}",
+                line=dict(color=color, width=2, dash="dot"),
+            ))
+
+    fig.update_layout(
+        xaxis=dict(title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"),
+        yaxis=dict(title="Counts s⁻¹ keV⁻¹", type="log", showgrid=True, gridcolor="#F1F5F9"),
+        template="simple_white",
+        margin=dict(l=65, r=20, t=20, b=50),
+        height=350,
+        showlegend=True,
+        legend=dict(x=0.02, y=0.98, xanchor="left", yanchor="top"),
+        font=dict(family="Inter, system-ui, sans-serif", size=12, color="#0F172A"),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+    )
+    return pyo.plot(fig, output_type="div", include_plotlyjs=False)
+
+
 # ── Inference API routes ───────────────────────────────────────────────────────
 
 @app.post("/infer/pairs", response_class=HTMLResponse)
@@ -605,6 +691,7 @@ async def run_infer(
                 task["messages"].append(f"multinest: nlive={nlive}")
                 post = bi.multinest(nlive=nlive, savepath=savepath)
             result = _posterior_html(post)
+            ist["posterior"] = post
             ist["result"] = result
             ist["error"] = None
             task["result_html"] = result
@@ -681,6 +768,29 @@ async def infer_stream(task_id: str, request: Request):
         media_type="text/event-stream",
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
+
+@app.get("/infer/plots/corner", response_class=HTMLResponse)
+async def infer_corner_plot(request: Request):
+    _, s, _ = _session(request)
+    post = s["infer_state"].get("posterior")
+    if post is None:
+        return HTMLResponse("<p class='alert alert-warning'>No posterior available.</p>")
+    try:
+        return HTMLResponse(_corner_plot_div(post))
+    except Exception as exc:
+        return HTMLResponse(f"<p class='alert alert-danger'>Corner plot error: {exc}</p>")
+
+
+@app.get("/infer/plots/spectra", response_class=HTMLResponse)
+async def infer_spectra_plot(request: Request):
+    _, s, _ = _session(request)
+    post = s["infer_state"].get("posterior")
+    if post is None:
+        return HTMLResponse("<p class='alert alert-warning'>No posterior available.</p>")
+    try:
+        return HTMLResponse(_spectra_plot_div(post))
+    except Exception as exc:
+        return HTMLResponse(f"<p class='alert alert-danger'>Spectra plot error: {exc}</p>")
 
 
 # ── Editor helpers ─────────────────────────────────────────────────────────────
