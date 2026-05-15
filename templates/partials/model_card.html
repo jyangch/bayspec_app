@@ -1,0 +1,161 @@
+{% set components = s.model_component.get(mkey, {}) %}
+{% set mstate    = s.model_state.get(mkey, {}) %}
+{% set composed  = s.model.get(mkey) %}
+
+<div id="model-card-{{ mkey }}" class="model-card card">
+
+  <!-- ── Card header ── -->
+  <div class="model-card-header">
+    <div class="model-card-title">
+      <span class="unit-badge">{{ mkey }}</span>
+      {% if composed %}
+        <span class="status-dot ok"></span>
+        <code class="model-expr-badge">{{ composed.expr }}</code>
+      {% endif %}
+      {% if mstate.get("error") %}
+        <span class="status-dot error" title="{{ mstate.error }}"></span>
+        <span class="status-label error">{{ mstate.error }}</span>
+      {% endif %}
+    </div>
+    <button class="btn btn-sm btn-danger"
+            hx-delete="/model/models/{{ mkey }}"
+            hx-target="#model-list"
+            hx-swap="outerHTML"
+            hx-confirm="Remove model '{{ mkey }}'?">
+      ✕ Remove
+    </button>
+  </div>
+
+  <!-- ── Add component row ── -->
+  <form class="add-comp-form"
+        hx-post="/model/models/{{ mkey }}/components"
+        hx-target="#model-card-{{ mkey }}"
+        hx-swap="outerHTML"
+        onsubmit="this.querySelector('[name=comp_key]').value=''">
+    <select name="comp_type" class="comp-type-select">
+      {% for n in local_model_names %}
+        <option value="{{ n }}">{{ n }}</option>
+      {% endfor %}
+    </select>
+    <input type="text" name="comp_key" placeholder="alias (optional)"
+           style="max-width:130px" />
+    <button type="submit" class="btn btn-sm">+ Add</button>
+  </form>
+
+  <!-- ── Component blocks ── -->
+  {% for ckey, comp in components.items() %}
+  {% set cfg_d = comp.cfg_info.data_dict %}
+  {% set par_d = comp.par_info.data_dict %}
+
+  <details class="comp-block" open>
+    <summary class="comp-summary">
+      <span class="comp-badge">{{ ckey }}</span>
+      <code class="comp-type-label">{{ comp.expr }}</code>
+      <button class="btn btn-sm btn-danger comp-del-btn"
+              hx-delete="/model/models/{{ mkey }}/components/{{ ckey }}"
+              hx-target="#model-card-{{ mkey }}"
+              hx-swap="outerHTML"
+              onclick="event.stopPropagation()">
+        ✕
+      </button>
+    </summary>
+
+    <div class="comp-body">
+      <form hx-post="/model/models/{{ mkey }}/components/{{ ckey }}/update"
+            hx-target="#model-card-{{ mkey }}"
+            hx-swap="outerHTML">
+
+        <!-- cfg table -->
+        {% if cfg_d["cfg#"] %}
+        <div class="param-section">
+          <div class="param-section-label">Configuration</div>
+          <table class="param-table">
+            <thead>
+              <tr><th>Parameter</th><th>Value</th></tr>
+            </thead>
+            <tbody>
+              {% for idx, param, val in zip(cfg_d["cfg#"], cfg_d["Parameter"], cfg_d["Value"]) %}
+              <tr>
+                <td class="param-name">{{ param }}</td>
+                <td>
+                  {% if val is sameas true or val is sameas false %}
+                    <select name="cfg_{{ idx }}" class="param-select">
+                      <option value="true"  {% if val %}selected{% endif %}>true</option>
+                      <option value="false" {% if not val %}selected{% endif %}>false</option>
+                    </select>
+                  {% else %}
+                    <input type="number" name="cfg_{{ idx }}"
+                           value="{{ val }}" step="any" class="param-input" />
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+
+        <!-- par table -->
+        <div class="param-section">
+          <div class="param-section-label">Parameters</div>
+          <table class="param-table">
+            <thead>
+              <tr><th>Parameter</th><th>Value</th><th>Prior</th></tr>
+            </thead>
+            <tbody>
+              {% for idx, param, val, prior in zip(par_d["par#"], par_d["Parameter"], par_d["Value"], par_d["Prior"]) %}
+              <tr>
+                <td class="param-name">{{ param }}</td>
+                <td>
+                  <input type="number" name="par_val_{{ idx }}"
+                         value="{{ val }}" step="any" class="param-input" />
+                </td>
+                <td>
+                  <input type="text" name="par_prior_{{ idx }}"
+                         value="{{ prior }}" class="param-input prior-input" />
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="comp-update-row">
+          <button type="submit" class="btn btn-sm">✓ Update</button>
+        </div>
+      </form>
+    </div>
+  </details>
+  {% endfor %}
+
+  <!-- ── Expression + compose ── -->
+  <div class="compose-row">
+    <form class="compose-form"
+          hx-post="/model/models/{{ mkey }}/compose"
+          hx-target="#model-card-{{ mkey }}"
+          hx-swap="outerHTML">
+      <label class="compose-label">Expression</label>
+      <input type="text" name="expression"
+             value="{{ mstate.get('expression', '') }}"
+             placeholder="e.g.  tbabs * cpl   or   cpl + bb"
+             class="compose-expr-input" />
+      <button type="submit" class="btn btn-sm btn-primary">⚡ Compose</button>
+    </form>
+
+    {% if composed %}
+    <button class="btn btn-sm"
+            hx-get="/model/models/{{ mkey }}/plot"
+            hx-target="#model-plot-{{ mkey }}"
+            hx-swap="innerHTML"
+            hx-indicator="#plot-spinner-{{ mkey }}">
+      📊 Preview
+      <span id="plot-spinner-{{ mkey }}" class="htmx-indicator">
+        <span class="spinner"></span>
+      </span>
+    </button>
+    {% endif %}
+  </div>
+
+  <div id="model-plot-{{ mkey }}" class="unit-plot"></div>
+
+</div>

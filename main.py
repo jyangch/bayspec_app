@@ -13,6 +13,9 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 templates.env.globals["zip"] = zip
 
+from bayspec.model.local import local_models as _local_models
+templates.env.globals["local_model_names"] = list(_local_models.keys())
+
 SESSION_COOKIE = "bsp_session"
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -245,3 +248,201 @@ async def unit_plot(key: str, request: Request):
         return HTMLResponse(div)
     except Exception as exc:
         return HTMLResponse(f"<p class='alert alert-danger'>Plot error: {exc}</p>")
+
+
+# ── Model helpers ──────────────────────────────────────────────────────────────
+
+def _parse_prior_str(s: str):
+    """Return (prior_obj, frozen). frozen=True if s=='frozen'."""
+    from bayspec.util.prior import all_priors
+    s = s.strip()
+    if s == "frozen":
+        return None, True
+    m = re.match(r"^(\w+)\((.+)\)$", s)
+    if not m:
+        raise ValueError(f"Cannot parse prior: {s!r}")
+    name, args_str = m.group(1), m.group(2)
+    if name not in all_priors:
+        raise ValueError(f"Unknown prior kind: {name!r}")
+    args = [float(x.strip()) for x in args_str.split(",")]
+    return all_priors[name](*args), False
+
+
+def _model_plot_div(model) -> str:
+    import numpy as np
+    import plotly.graph_objects as go
+    import plotly.offline as pyo
+
+    E = np.logspace(1, 3, 150)
+    try:
+        NE = model.func(E)
+        vFv = E ** 2 * NE
+    except Exception as exc:
+        return f"<p class='alert alert-danger'>Evaluation error: {exc}</p>"
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=E, y=vFv, mode="lines",
+        line=dict(color="#4F46E5", width=2),
+        name=str(getattr(model, "expr", "model")),
+    ))
+    fig.update_layout(
+        xaxis=dict(title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"),
+        yaxis=dict(title="E² N(E)  (keV photons s⁻¹ cm⁻²)", type="log",
+                   showgrid=True, gridcolor="#F1F5F9"),
+        template="simple_white",
+        margin=dict(l=65, r=20, t=20, b=50),
+        height=280,
+        font=dict(family="Inter, system-ui, sans-serif", size=12, color="#0F172A"),
+        paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
+    )
+    return pyo.plot(fig, output_type="div", include_plotlyjs=False)
+
+
+def _render_model_card(mkey: str, request: Request):
+    _, s, _ = _session(request)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/model_card.html",
+        context={"s": s, "mkey": mkey},
+    )
+
+
+def _render_model_list(request: Request):
+    _, s, _ = _session(request)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/model_list.html",
+        context={"s": s},
+    )
+
+
+# ── Model API routes ───────────────────────────────────────────────────────────
+
+@app.post("/model/models", response_class=HTMLResponse)
+async def create_model(request: Request, model_key: str = Form(...)):
+    sid, s, is_new = _session(request)
+    key = _safe_key(model_key) or "model"
+    if key not in s["model_component"]:
+        s["model_component"][key] = {}
+        s["model_state"][key] = {"expression": "", "error": None}
+    resp = _render_model_list(request)
+    if is_new:
+        resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite="lax")
+    return resp
+
+
+@app.delete("/model/models/{mkey}", response_class=HTMLResponse)
+async def delete_model(mkey: str, request: Request):
+    sid, s, is_new = _session(request)
+    s["model_component"].pop(mkey, None)
+    s["model_state"].pop(mkey, None)
+    s["model"].pop(mkey, None)
+    resp = _render_model_list(request)
+    if is_new:
+        resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite="lax")
+    return resp
+
+
+@app.post("/model/models/{mkey}/components", response_class=HTMLResponse)
+async def add_component(
+    mkey: str,
+    request: Request,
+    comp_type: str = Form(...),
+    comp_key: str = Form(""),
+):
+    _, s, _ = _session(request)
+    ckey = _safe_key(comp_key.strip()) if comp_key.strip() else comp_type
+    from bayspec.model.local import local_models as lm
+    if comp_type not in lm:
+        s["model_state"].setdefault(mkey, {})["error"] = f"Unknown model: {comp_type!r}"
+        return _render_model_card(mkey, request)
+    comp = lm[comp_type]()
+    s["model_component"].setdefault(mkey, {})[ckey] = comp
+    s["model_state"].setdefault(mkey, {})["error"] = None
+    return _render_model_card(mkey, request)
+
+
+@app.delete("/model/models/{mkey}/components/{ckey}", response_class=HTMLResponse)
+async def delete_component(mkey: str, ckey: str, request: Request):
+    _, s, _ = _session(request)
+    s["model_component"].get(mkey, {}).pop(ckey, None)
+    s["model"].pop(mkey, None)  # invalidate composed model
+    return _render_model_card(mkey, request)
+
+
+@app.post("/model/models/{mkey}/components/{ckey}/update", response_class=HTMLResponse)
+async def update_component(mkey: str, ckey: str, request: Request):
+    form = await request.form()
+    _, s, _ = _session(request)
+    comp = s["model_component"].get(mkey, {}).get(ckey)
+    if comp is None:
+        return _render_model_card(mkey, request)
+
+    cfg_dict = comp.cfg_info.data_dict
+    for idx, param, orig_val in zip(cfg_dict["cfg#"], cfg_dict["Parameter"], cfg_dict["Value"]):
+        field = f"cfg_{idx}"
+        if field not in form:
+            continue
+        raw = form[field]
+        try:
+            if isinstance(orig_val, bool):
+                new_val = raw == "true"
+            elif isinstance(orig_val, int):
+                new_val = int(float(raw))
+            else:
+                new_val = float(raw)
+            comp.config[param]._val = new_val
+        except (ValueError, TypeError):
+            pass
+
+    par_dict = comp.par_info.data_dict
+    for idx, param, orig_prior in zip(par_dict["par#"], par_dict["Parameter"], par_dict["Prior"]):
+        val_field = f"par_val_{idx}"
+        prior_field = f"par_prior_{idx}"
+        if val_field in form:
+            try:
+                comp.params[param].val = float(form[val_field])
+            except (ValueError, TypeError):
+                pass
+        if prior_field in form:
+            new_prior = form[prior_field].strip()
+            if new_prior and new_prior != orig_prior:
+                try:
+                    prior_obj, frozen = _parse_prior_str(new_prior)
+                    comp.params[param].frozen = frozen
+                    if not frozen:
+                        comp.params[param].prior = prior_obj
+                except (ValueError, KeyError):
+                    pass
+
+    return _render_model_card(mkey, request)
+
+
+@app.post("/model/models/{mkey}/compose", response_class=HTMLResponse)
+async def compose_model(
+    mkey: str,
+    request: Request,
+    expression: str = Form(...),
+):
+    _, s, _ = _session(request)
+    components = s["model_component"].get(mkey, {})
+    s["model_state"].setdefault(mkey, {})["expression"] = expression
+    error = None
+    try:
+        composed = eval(expression, {"__builtins__": {}}, dict(components))  # noqa: S307
+        s["model"][mkey] = composed
+        s["model_state"][mkey]["error"] = None
+    except Exception as exc:
+        error = str(exc)
+        s["model_state"][mkey]["error"] = error
+    return _render_model_card(mkey, request)
+
+
+@app.get("/model/models/{mkey}/plot", response_class=HTMLResponse)
+async def model_plot(mkey: str, request: Request):
+    _, s, _ = _session(request)
+    model = s["model"].get(mkey)
+    if model is None:
+        return HTMLResponse("<p class='alert alert-warning'>Compose the model first.</p>")
+    return HTMLResponse(_model_plot_div(model))

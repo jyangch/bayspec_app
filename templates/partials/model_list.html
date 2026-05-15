@@ -1,0 +1,14 @@
+<div id="model-list">
+{% set mc = s.model_component %}
+{% if not mc %}
+  <div class="empty-state">
+    <div class="empty-icon">🌈</div>
+    <div class="empty-title">No models yet</div>
+    <p>Enter a model name above and click <b>+ New model</b>.</p>
+  </div>
+{% else %}
+  {% for mkey in mc.keys() %}
+    {% include "partials/model_card.html" %}
+  {% endfor %}
+{% endif %}
+</div>

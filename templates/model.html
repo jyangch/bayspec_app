@@ -1,12 +1,23 @@
 {% extends "base.html" %}
 {% set active_page = "model" %}
 {% block title %}BaySpec — Model{% endblock %}
+
 {% block content %}
 <h1>Model</h1>
-<p class="page-subtitle">Select and compose spectral model components.</p>
-<div class="empty-state">
-  <div class="empty-icon">🌈</div>
-  <div class="empty-title">Coming in Round 3</div>
-  <p>Pick components from local / Astromodels / XSPEC libraries, set parameters and priors.</p>
+<p class="page-subtitle">Build spectral models from library components.</p>
+
+<!-- Create model bar -->
+<div class="create-bar card">
+  <form class="inline-form"
+        hx-post="/model/models"
+        hx-target="#model-list"
+        hx-swap="outerHTML"
+        onsubmit="this.reset()">
+    <input type="text" name="model_key" placeholder="Model name, e.g. model1" required
+           style="max-width:220px" />
+    <button type="submit" class="btn btn-primary">+ New model</button>
+  </form>
 </div>
+
+{% include "partials/model_list.html" %}
 {% endblock %}
