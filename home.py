@@ -1,63 +1,95 @@
 import streamlit as st
 
-css = """
-<style>
-    section.main > div {max-width:75rem}
-</style>
-"""
-st.markdown(css, unsafe_allow_html=True)
+st.markdown(
+    """
+    <div class="bsp-hero">
+        <span class="bsp-eyebrow">v0.3 · Bayesian spectral fitting</span>
+        <h1>Welcome to <span class="bsp-gradient">BaySpec</span></h1>
+        <p class="lead">
+            A modern, browser-based fitting workbench for high-energy astrophysical spectra.
+            Combine local, Astromodels, XSPEC and user-defined components, then sample with
+            <b>emcee</b>, <b>multinest</b>, <b>lmfit</b> or <b>iminuit</b> — all from a single,
+            reproducible interface.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
-readme = """
-# *Welcome* *To* :rainbow[*BAYSPEC*] 👋
+st.markdown(
+    '[![PyPI](https://img.shields.io/pypi/v/bayspec?color=4F46E5&logo=PyPI&logoColor=white&style=for-the-badge)]'
+    '(https://pypi.org/project/bayspec/) '
+    '[![Docs](https://img.shields.io/badge/docs-readthedocs-06B6D4?style=for-the-badge&logo=readthedocs&logoColor=white)]'
+    '(https://bayspec.readthedocs.io) '
+    '[![License: GPL v3](https://img.shields.io/badge/license-GPL--3.0-0F172A?style=for-the-badge)]'
+    '(https://www.gnu.org/licenses/gpl-3.0)'
+)
 
-### A Bayesian Inference-based Spectral Fitting Tool for High-energy Astrophysical Data.
+st.write('')
+a, b, c, d = st.columns(4)
+a.metric('Inference', '4 backends', help='emcee · multinest · lmfit · iminuit')
+b.metric('Model libraries', '4', help='local · Astromodels · XSPEC · user-defined')
+c.metric('Spectra', 'Multi-wavelength', help='joint multi-instrument fits')
+d.metric('Stack', 'Streamlit', help='browser-based, no install on user side')
 
-[![PyPI - Version](https://img.shields.io/pypi/v/bayspec?color=blue&logo=PyPI&logoColor=white&style=for-the-badge)](https://pypi.org/project/bayspec/)
-[![License: GPL v3](https://img.shields.io/github/license/wcxve/elisa?color=blue&logo=open-source-initiative&logoColor=white&style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
+st.write('')
 
+st.markdown('#### What you can do')
+f1, f2, f3 = st.columns(3)
+with f1.container(border=True):
+    st.markdown('##### 🔭 Bring your data')
+    st.write(
+        'Upload OGIP-format `src` / `bkg` / `rsp` (or `rmf` + `arf`); '
+        'pick statistic, noticing, grouping, rebinning per unit.'
+    )
+with f2.container(border=True):
+    st.markdown('##### 🌈 Compose your model')
+    st.write(
+        'Select components from local / Astromodels / XSPEC, '
+        'or paste your own Python class. Combine with `+ - * /`.'
+    )
+with f3.container(border=True):
+    st.markdown('##### 📝 Run inference')
+    st.write(
+        'Pair Data ↔ Model, manually fit, then run a Bayesian sampler '
+        'or maximum-likelihood optimizer with one click.'
+    )
 
-## Features
-- **Bayesian inference-based**: implemented by MCMC (e.g., emcee) or nested sampling (e.g., multinest)
-- **Multi-dimensional**: enabling the fit of time-evolving spectra with time-involved physical models
-- **Multi-wavelength**: supporting for the joint fitting to multi-wavelength astronomical spectra
-- **Friendly interface**: easy-to-use web application developed with streamlit
-- **Others**: simultaneous fitting of multi-spectra and multi-models, freely combining available models and add new model
+st.write('')
 
-
-## Installation
-
-_BaySpec_ is available via `pip`:
+with st.expander('Installation', expanded=False):
+    st.markdown(
+        """
+**BaySpec** is on PyPI:
 ```bash
-$ pip install bayspec
+pip install bayspec
 ```
 
-### Utilize `multinest` sampler
-If you want to use [`Multinest`](https://github.com/rjw57/MultiNest) for Bayesian inference, you can follow the instructions in the [`pymultinest`](https://johannesbuchner.github.io/PyMultiNest/) documentation to install it.
+#### Optional sampler / model backends
 
-### Access `Astromodels` models
-To utilize models from [`Astromodels`](https://astromodels.readthedocs.io/en/latest/notebooks/function_list.html#), ensure that `Astromodels` is installed on your system.
+| Backend | Install | Use |
+|--|--|--|
+| `emcee` | `pip install emcee` | MCMC sampler |
+| `multinest` | see [PyMultiNest docs](https://johannesbuchner.github.io/PyMultiNest/) | Nested sampling |
+| `lmfit` | `pip install lmfit` | Maximum-likelihood fit |
+| `iminuit` | `pip install iminuit` | Maximum-likelihood fit |
+| `astromodels` | `pip install astromodels` | Bridge to Astromodels |
+| `xspec_models_cxc` | requires HEASoft + Xspec ≥ 12.12.1, see [`xspec-models-cxc`](https://github.com/cxcsds/xspec-models-cxc) | Bridge to XSPEC |
+        """
+    )
 
-### Access `Xspec` models
-To utilize models from [`Xspec`](https://heasarc.gsfc.nasa.gov/xanadu/xspec/manual/Models.html), ensure that both `HEASoft` and `Xspec v12.12.1+` are installed on your system. After confirming that `HEASoft` environment is properly initialized, then you need install [`xspec-models-cxc`](https://github.com/cxcsds/xspec-models-cxc).
+with st.expander('Documentation & resources', expanded=False):
+    st.markdown(
+        """
+- 📘 [Documentation](https://bayspec.readthedocs.io)
+- 🧪 [Examples](https://github.com/jyangch/bayspec/tree/main/examples)
+- 💻 [Source code](https://github.com/jyangch/bayspec)
+- 🌐 [App on Streamlit Cloud](https://bayspec.streamlit.app)
+        """
+    )
 
-**NOTE**: _BaySpec_ currently only supports `Additive` and `Multiplicative` models in `Xspec`.
-
-
-## BaySpec App
-
-[_BaySpec App_](https://github.com/jyangch/bayspec_app) provides an easy-to-use web application implemented using [`streamlit`](https://streamlit.io/).
-
-[![Open in Streamlit](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://bayspec.streamlit.app)
-
-
-## Documentation
-
-If you wish to learn about the usage, you may check the [`examples`](https://github.com/jyangch/bayspec/tree/main/examples) or read the [`documentation`](https://bayspec.readthedocs.io).
-
-
-## License
-
-_BaySpec_ is distributed under the terms of the [`GPL-3.0`](https://www.gnu.org/licenses/gpl-3.0-standalone.html) license.
-"""
-
-st.markdown(readme)
+st.divider()
+st.caption(
+    '_BaySpec_ is distributed under the terms of the '
+    '[GPL-3.0](https://www.gnu.org/licenses/gpl-3.0-standalone.html) license.'
+)

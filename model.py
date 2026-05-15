@@ -28,14 +28,13 @@ def init_session_state():
         st.session_state.infer_state = {}
 
 
-css = """
-<style>
-    section.main > div {max-width:75rem}
-</style>
-"""
-st.markdown(css, unsafe_allow_html=True)
-
 init_session_state()
+
+st.markdown(
+    '<p class="bsp-subtitle">Compose spectral models from local, Astromodels, XSPEC '
+    'or your own components, then bind each to a Data container.</p>',
+    unsafe_allow_html=True,
+)
 
 
 def set_ini(key, ini=None):
@@ -92,16 +91,19 @@ def pop_key(keys):
             _ = st.session_state.infer_state.pop(key)
 
 
-key = 'nmodel'
-ini = 'min'
-set_ini(key, ini)
-nmodel = st.sidebar.number_input(
-    '**Input the number of Model**',
-    min_value=1,
-    value=get_val(key),
-    key=key,
-    on_change=reset_model,
-)
+with st.sidebar:
+    st.markdown('##### 🌈 Model setup')
+    key = 'nmodel'
+    ini = 'min'
+    set_ini(key, ini)
+    nmodel = st.number_input(
+        'Number of Models',
+        min_value=1,
+        value=get_val(key),
+        key=key,
+        on_change=reset_model,
+        help='Each Model is a composite of one or more spectral components.',
+    )
 
 for i in range(nmodel):
     st.session_state.model[f'Model{i + 1}'] = None
@@ -353,12 +355,17 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                                 )
                             component.expr = expr
 
-                            cfg_df = pd.DataFrame(component.cfg_info.data_dict)
+                            cfg_data = dict(component.cfg_info.data_dict)
+                            cfg_data['Value'] = [float(v) for v in cfg_data['Value']]
+                            cfg_df = pd.DataFrame(cfg_data)
                             key = f'{model_key}_{component_key}_cfg'
                             ini = cfg_df
                             set_ini(key, ini)
                             cfg_df = st.data_editor(
                                 get_data(key),
+                                column_config={
+                                    'Value': st.column_config.NumberColumn(format='%g'),
+                                },
                                 use_container_width=True,
                                 num_rows='fixed',
                                 disabled=['cfg#', 'Component', 'Parameter'],
@@ -367,10 +374,26 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                             )
 
                             for _, row in cfg_df.to_dict('index').items():
-                                component.cfg[int(row['cfg#'])].val = row['Value']
+                                cfg_obj = component.cfg[int(row['cfg#'])]
+                                orig = cfg_obj.val
+                                try:
+                                    if isinstance(orig, bool):
+                                        new_val = bool(row['Value'])
+                                    elif isinstance(orig, int):
+                                        new_val = int(row['Value'])
+                                    else:
+                                        new_val = float(row['Value'])
+                                except (ValueError, TypeError):
+                                    st.error(
+                                        f'Invalid cfg value for {row["Parameter"]}: {row["Value"]!r}',
+                                        icon='🚨',
+                                    )
+                                    continue
+                                cfg_obj.val = new_val
 
                             par_df = pd.DataFrame(component.par_info.data_dict)
-                            key = f'{model_key}_{component_key}_par'
+                            plabels_sig = ','.join(component.par_info.data_dict['Parameter'])
+                            key = f'{model_key}_{component_key}_par|{plabels_sig}'
                             ini = par_df
                             set_ini(key, ini)
                             par_df = st.data_editor(
@@ -421,7 +444,7 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                             st.info(f'{component.expr} [{component.type}]')
                             st.info(component.comment)
 
-                    with st.popover('Display model spectra', use_container_width=True):
+                    with st.popover('📈  Display model spectra', use_container_width=True):
                         if component is None:
                             if library == 'user':
                                 st.warning(
@@ -584,7 +607,7 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                         for comment in model.comment.split('\n'):
                             st.info(comment)
 
-                with st.popover('Display model spectra', use_container_width=True):
+                with st.popover('📈  Display model spectra', use_container_width=True):
                     if st.session_state.model[model_key] is None:
                         st.warning('The model has not been set!', icon='⚠️')
                     elif None in list(st.session_state.model_component[model_key].values()):

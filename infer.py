@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 import time
 
-from bayspec.infer.infer import BayesInfer
+from bayspec.infer.infer import BayesInfer, MaxLikeFit
 from bayspec.util.plot import Plot
 import numpy as np
 import pandas as pd
@@ -26,14 +26,24 @@ def init_session_state():
         st.session_state.infer_state = {}
 
 
-css = """
-<style>
-    section.main > div {max-width:75rem}
-</style>
-"""
-st.markdown(css, unsafe_allow_html=True)
-
 init_session_state()
+
+st.markdown(
+    '<p class="bsp-subtitle">Pair Data ↔ Model, do a manual fit, then run a Bayesian '
+    'sampler or maximum-likelihood optimizer and inspect the posterior.</p>',
+    unsafe_allow_html=True,
+)
+
+
+def empty_card(icon, title, body):
+    st.markdown(
+        f'<div class="bsp-empty">'
+        f'  <div class="bsp-empty-icon">{icon}</div>'
+        f'  <div class="bsp-empty-title">{title}</div>'
+        f'  <div>{body}</div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
 
 
 def set_ini(key, ini=None):
@@ -72,6 +82,12 @@ def get_download_folder():
         return Path.home() / 'Downloads'
 
 
+with st.sidebar:
+    st.markdown('##### 📝 Fitting workflow')
+    st.caption(
+        '1. Pair Data ↔ Model · 2. Manual fit · 3. Run inference · 4. Inspect posterior'
+    )
+
 st.session_state.infer = None
 st.session_state.infer_state['infer_pair_flag'] = False
 
@@ -84,7 +100,7 @@ for data_key in st.session_state.data:
     ):
         all_pairs[f'{data_key}🔗{model_key}'] = [data_key, model_key]
 
-with st.expander('***Set fitting pairs***', expanded=False):
+with st.expander('***Set fitting pairs***', expanded=True):
     key = 'infer_pairs'
     ini = list(all_pairs.keys())
     set_ini(key, ini)
@@ -104,9 +120,9 @@ with st.expander('***Set fitting pairs***', expanded=False):
 
     cfg_col, _, par_col = st.columns([4.9, 0.2, 4.9])
 
-    with cfg_col, st.popover('Configurations', use_container_width=True):
+    with cfg_col, st.popover('⚙️  Configurations', use_container_width=True):
         if not st.session_state.infer_state['infer_pair_flag']:
-            st.warning('No infer pair!', icon='⚠️')
+            empty_card('🔗', 'No fitting pair selected', 'Pick at least one Data ↔ Model pair above to continue.')
         else:
             cfg_df = pd.DataFrame(infer.cfg_info.data_dict)
             key = 'infer_cfg'
@@ -119,9 +135,9 @@ with st.expander('***Set fitting pairs***', expanded=False):
                 key=key,
             )
 
-    with par_col, st.popover('Parameters', use_container_width=True):
+    with par_col, st.popover('🔗  Parameters & links', use_container_width=True):
         if not st.session_state.infer_state['infer_pair_flag']:
-            st.warning('No infer pair!', icon='⚠️')
+            empty_card('🔗', 'No fitting pair selected', 'Pick at least one Data ↔ Model pair above to continue.')
         else:
             key = 'infer_nlink'
             ini = 'min'
@@ -160,7 +176,7 @@ with st.expander('***Set fitting pairs***', expanded=False):
 
 with st.expander('***Manual fitting***', expanded=False):
     if not st.session_state.infer_state['infer_pair_flag']:
-        st.warning('No infer pair!', icon='⚠️')
+        empty_card('🔗', 'No fitting pair selected', 'Pick at least one Data ↔ Model pair above to continue.')
     else:
         free_par_df = pd.DataFrame(infer.free_par_info.data_dict)
         key = 'manual_free_par'
@@ -199,17 +215,27 @@ with st.expander('***Manual fitting***', expanded=False):
             key = 'manual_ctsspec_fig'
             st.plotly_chart(fig.fig, theme='streamlit', use_container_width=True, key=key)
 
-with st.expander('***Bayesian inference***', expanded=False):
+with st.expander('***Inference***', expanded=False):
     run_col, _, post_col = st.columns([4.9, 0.2, 4.9])
 
     with run_col:
-        with st.popover('Sampler settings', use_container_width=True):
-            key = 'infer_sampler'
+        with st.popover('🛠️  Method settings', use_container_width=True):
+            key = 'infer_method'
             ini = 'emcee'
             set_ini(key, ini)
-            options = ['emcee', 'multinest']
+            sampler_options = ['emcee', 'multinest']
+            optimizer_options = ['lmfit', 'iminuit']
+            options = sampler_options + optimizer_options
             sampler = st.selectbox(
-                'Choose bayesian sampler', options, index=get_idx(key, options), key=key
+                'Choose Bayesian sampler or maximum-likelihood optimizer',
+                options,
+                index=get_idx(key, options),
+                key=key,
+                format_func=lambda m: (
+                    f'{m} (Bayesian sampler)'
+                    if m in sampler_options
+                    else f'{m} (max-likelihood optimizer)'
+                ),
             )
 
             if sampler == 'multinest':
@@ -272,16 +298,43 @@ with st.expander('***Bayesian inference***', expanded=False):
                     key=key,
                 )
 
-        key = 'infer_resume'
-        ini = 'Yes'
-        set_ini(key, ini)
-        options = ['Yes', 'No']
-        resume = st.selectbox(
-            'Choose to resume or not', options, index=get_idx(key, options), key=key
-        )
-        if resume == 'Yes':
-            resume = True
-        if resume == 'No':
+            if sampler == 'lmfit':
+                try:
+                    import lmfit  # noqa: F401
+                except ImportError:
+                    sampler_exist = False
+                    st.warning(
+                        'To utilize lmfit for Maximum Likelihood Estimation, ensure lmfit is installed!',
+                        icon='⚠️',
+                    )
+                else:
+                    sampler_exist = True
+
+            if sampler == 'iminuit':
+                try:
+                    import iminuit  # noqa: F401
+                except ImportError:
+                    sampler_exist = False
+                    st.warning(
+                        'To utilize iminuit for Maximum Likelihood Estimation, ensure iminuit is installed!',
+                        icon='⚠️',
+                    )
+                else:
+                    sampler_exist = True
+
+        if sampler in sampler_options:
+            key = 'infer_resume'
+            ini = 'Yes'
+            set_ini(key, ini)
+            options = ['Yes', 'No']
+            resume = st.selectbox(
+                'Choose to resume or not (samplers only)',
+                options,
+                index=get_idx(key, options),
+                key=key,
+            )
+            resume = resume == 'Yes'
+        else:
             resume = False
 
         key = 'infer_savepath'
@@ -303,23 +356,38 @@ with st.expander('***Bayesian inference***', expanded=False):
             st.info('Note: the folder of results has already existed!')
 
         key = 'infer_run'
-        run = st.button(':rainbow[**RUN**]', key=key, help=None, use_container_width=True)
+        run = st.button(
+            '🚀  Run inference',
+            key=key,
+            type='primary',
+            help='Launch the selected sampler / optimizer with the current settings.',
+            use_container_width=True,
+        )
 
         if run:
             if not st.session_state.infer_state['infer_pair_flag']:
-                st.warning('No infer pair!', icon='⚠️')
+                empty_card('🔗', 'No fitting pair selected', 'Pick at least one Data ↔ Model pair above to continue.')
             elif not sampler_exist:
-                st.warning('Sampler does not exist!', icon='⚠️')
+                st.warning('Selected method backend is not installed!', icon='⚠️')
             else:
                 with st.sidebar.status('Running...', expanded=True) as status:
                     st.write(f'Start: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
+
+                    if not os.path.exists(savepath):
+                        os.makedirs(savepath)
 
                     if sampler == 'multinest':
                         post = infer.multinest(
                             nlive=multinest_nlive, resume=resume, savepath=savepath
                         )
-                    if sampler == 'emcee':
+                    elif sampler == 'emcee':
                         post = infer.emcee(nstep=emcee_nstep, resume=resume, savepath=savepath)
+                    elif sampler in ('lmfit', 'iminuit'):
+                        fit = MaxLikeFit(pair_list)
+                        if sampler == 'lmfit':
+                            post = fit.lmfit(savepath=savepath)
+                        else:
+                            post = fit.iminuit(savepath=savepath)
 
                     st.write(f'Stop: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}')
                     st.session_state.infer_state['post'] = post
@@ -329,9 +397,9 @@ with st.expander('***Bayesian inference***', expanded=False):
                 post = st.session_state.infer_state['post']
 
     with post_col:
-        with st.popover('Posterior analyse', use_container_width=True):
+        with st.popover('📊  Posterior summary', use_container_width=True):
             if 'post' not in st.session_state.infer_state:
-                st.warning('Please run Bayesian inference!', icon='⚠️')
+                empty_card('🚀', 'No inference results yet', 'Run a sampler or optimizer above to see results here.')
             else:
                 free_par_df = pd.DataFrame(post.free_par_info.data_dict)
                 key = 'post_free_par'
@@ -366,27 +434,27 @@ with st.expander('***Bayesian inference***', expanded=False):
                     key=key,
                 )
 
-        with st.popover('Posterior corner plot', use_container_width=True):
+        with st.popover('🎯  Corner plot', use_container_width=True):
             if 'post' not in st.session_state.infer_state:
-                st.warning('Please run Bayesian inference!', icon='⚠️')
+                empty_card('🚀', 'No inference results yet', 'Run a sampler or optimizer above to see results here.')
             else:
                 fig = Plot.post_corner(post)
 
                 key = 'infer_corner_fig'
                 st.plotly_chart(fig.fig, theme='streamlit', use_container_width=True, key=key)
 
-        with st.popover('Counts spectra plot', use_container_width=True):
+        with st.popover('📈  Counts spectra', use_container_width=True):
             if 'post' not in st.session_state.infer_state:
-                st.warning('Please run Bayesian inference!', icon='⚠️')
+                empty_card('🚀', 'No inference results yet', 'Run a sampler or optimizer above to see results here.')
             else:
                 fig = Plot.infer(post, style='CE')
 
                 key = 'infer_ctsspec_fig'
                 st.plotly_chart(fig.fig, theme='streamlit', use_container_width=True, key=key)
 
-        with st.popover('Model spectra plot', use_container_width=True):
+        with st.popover('🌊  Model spectra', use_container_width=True):
             if 'post' not in st.session_state.infer_state:
-                st.warning('Please run Bayesian inference!', icon='⚠️')
+                empty_card('🚀', 'No inference results yet', 'Run a sampler or optimizer above to see results here.')
             else:
                 key = 'post_model_style'
                 ini = None

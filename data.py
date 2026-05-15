@@ -21,14 +21,13 @@ def init_session_state():
         st.session_state.infer_state = {}
 
 
-css = """
-<style>
-    section.main > div {max-width:75rem}
-</style>
-"""
-st.markdown(css, unsafe_allow_html=True)
-
 init_session_state()
+
+st.markdown(
+    '<p class="bsp-subtitle">Upload OGIP spectra and configure noticing, grouping, '
+    'and rebinning per data unit.</p>',
+    unsafe_allow_html=True,
+)
 
 
 def set_ini(key, ini=None):
@@ -73,16 +72,19 @@ def reset_data():
     st.session_state.data = {}
 
 
-key = "ndata"
-ini = "min"
-set_ini(key, ini)
-ndata = st.sidebar.number_input(
-    "**Input the number of Data**",
-    min_value=1,
-    value=get_val(key),
-    key=key,
-    on_change=reset_data,
-)
+with st.sidebar:
+    st.markdown("##### 🔭 Data setup")
+    key = "ndata"
+    ini = "min"
+    set_ini(key, ini)
+    ndata = st.number_input(
+        "Number of Data containers",
+        min_value=1,
+        value=get_val(key),
+        key=key,
+        on_change=reset_data,
+        help="Each Data container groups one or more spectral units (DataUnits).",
+    )
 
 for i in range(ndata):
     st.session_state.data[f"Data{i + 1}"] = Data()
@@ -457,7 +459,7 @@ for di, data_key in enumerate(st.session_state.data.keys()):
                                 "rebn_min_sigma",
                                 "rebn_max_bin",
                             ]
-                            values = [
+                            raw_values = [
                                 getattr(dataunit, "src_name", None),
                                 getattr(dataunit, "bkg_name", None),
                                 getattr(dataunit, "rmf_name", None),
@@ -475,6 +477,9 @@ for di, data_key in enumerate(st.session_state.data.keys()):
                                 rebn_min_sigma,
                                 rebn_max_bin,
                             ]
+                            values = [
+                                "" if v is None else str(v) for v in raw_values
+                            ]
                             info = {"Property": properties, expr: values}
                             st.dataframe(
                                 pd.DataFrame(info),
@@ -483,7 +488,7 @@ for di, data_key in enumerate(st.session_state.data.keys()):
                             )
 
                     with st.popover(
-                        "Display dataunit counts spectra", use_container_width=True
+                        "📈  Display dataunit counts spectra", use_container_width=True
                     ):
                         if src is None:
                             st.warning("dataunit does not exist!", icon="⚠️")

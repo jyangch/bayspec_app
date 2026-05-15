@@ -19,11 +19,418 @@ def init_session_state():
         st.session_state.infer_state = {}
 
 
-st.set_page_config(layout='wide')
+GLOBAL_CSS = """
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    :root {
+        --bsp-primary: #4F46E5;
+        --bsp-primary-soft: #6366F1;
+        --bsp-primary-hover: #4338CA;
+        --bsp-accent: #06B6D4;
+        --bsp-accent-soft: #22D3EE;
+        --bsp-success: #10B981;
+        --bsp-warning: #F59E0B;
+        --bsp-danger: #EF4444;
+        --bsp-bg: #FFFFFF;
+        --bsp-surface: #F8FAFC;
+        --bsp-surface-2: #F1F5F9;
+        --bsp-border: #E2E8F0;
+        --bsp-border-soft: #EEF2F7;
+        --bsp-text: #0F172A;
+        --bsp-text-muted: #64748B;
+        --bsp-shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+        --bsp-shadow-md: 0 4px 16px rgba(15, 23, 42, 0.06);
+        --bsp-shadow-lg: 0 10px 30px rgba(79, 70, 229, 0.10);
+        --bsp-sidebar-width: 320px;
+    }
+
+    /* Base typography — bumped up */
+    html, body, [class*="css"], [data-testid="stAppViewContainer"] {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif !important;
+        font-feature-settings: "cv11", "ss01", "ss03";
+        font-size: 16px;
+    }
+    code, pre, kbd, samp, .stCode, [data-testid="stCodeBlock"] {
+        font-family: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace !important;
+        font-size: 0.92rem;
+    }
+    p, li, label, .stMarkdown {
+        font-size: 1rem;
+        line-height: 1.6;
+    }
+
+    /* Layout */
+    section.main > div.block-container {
+        max-width: 82rem;
+        padding-top: 2.4rem;
+        padding-bottom: 4rem;
+    }
+
+    /* Headings — slightly larger throughout */
+    h1, h2, h3, h4 {
+        letter-spacing: -0.015em;
+        color: var(--bsp-text);
+    }
+    h1 {
+        font-weight: 800;
+        font-size: 2.6rem;
+        margin-bottom: 0.45rem;
+    }
+    h2 { font-weight: 700; font-size: 1.75rem; margin-top: 1.3rem; }
+    h3 { font-weight: 600; font-size: 1.3rem; }
+    h4 { font-weight: 600; font-size: 1.05rem; color: var(--bsp-text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+    a, a:visited { color: var(--bsp-primary); text-decoration: none; }
+    a:hover { color: var(--bsp-primary-hover); text-decoration: underline; }
+
+    /* Expanders */
+    [data-testid="stExpander"] {
+        border-radius: 14px;
+        border: 1px solid var(--bsp-border);
+        background-color: var(--bsp-bg);
+        box-shadow: var(--bsp-shadow-sm);
+        margin-bottom: 0.85rem;
+        transition: box-shadow 0.18s ease, border-color 0.18s ease;
+    }
+    [data-testid="stExpander"]:hover {
+        border-color: #CBD5E1;
+        box-shadow: var(--bsp-shadow-md);
+    }
+    [data-testid="stExpander"] details > summary {
+        padding: 0.95rem 1.15rem;
+        font-weight: 600;
+        font-size: 1.02rem;
+        color: var(--bsp-text);
+    }
+    [data-testid="stExpander"] details > summary:hover {
+        background-color: var(--bsp-surface);
+        border-radius: 14px 14px 0 0;
+    }
+    [data-testid="stExpander"] details[open] > summary {
+        border-bottom: 1px solid var(--bsp-border-soft);
+        border-radius: 14px 14px 0 0;
+    }
+
+    /* Tabs: underline indicator */
+    [data-testid="stTabs"] [role="tablist"] {
+        gap: 0.25rem;
+        border-bottom: 1px solid var(--bsp-border);
+    }
+    [data-testid="stTabs"] [role="tab"] {
+        padding: 0.6rem 1.05rem;
+        color: var(--bsp-text-muted);
+        font-weight: 500;
+        font-size: 0.97rem;
+        border-radius: 8px 8px 0 0;
+        transition: color 0.15s ease, background-color 0.15s ease;
+    }
+    [data-testid="stTabs"] [role="tab"]:hover {
+        color: var(--bsp-text);
+        background-color: var(--bsp-surface);
+    }
+    [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
+        color: var(--bsp-primary);
+        background-color: transparent;
+        border-bottom: 2px solid var(--bsp-primary) !important;
+    }
+
+    /* Buttons */
+    .stButton > button, .stDownloadButton > button {
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 0.97rem;
+        border: 1px solid var(--bsp-border);
+        background-color: var(--bsp-bg);
+        color: var(--bsp-text);
+        transition: all 0.15s ease;
+    }
+    .stButton > button:hover, .stDownloadButton > button:hover {
+        border-color: var(--bsp-primary);
+        color: var(--bsp-primary);
+        transform: translateY(-1px);
+        box-shadow: var(--bsp-shadow-md);
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, var(--bsp-primary) 0%, var(--bsp-primary-soft) 100%);
+        color: #FFFFFF !important;
+        border: none;
+        box-shadow: var(--bsp-shadow-lg);
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, var(--bsp-primary-hover) 0%, var(--bsp-primary) 100%);
+        color: #FFFFFF !important;
+        transform: translateY(-1px);
+    }
+
+    /* Popovers */
+    [data-testid="stPopover"] button {
+        border-radius: 10px;
+        background-color: var(--bsp-surface);
+        border: 1px solid var(--bsp-border);
+        font-weight: 500;
+    }
+    [data-testid="stPopover"] button:hover {
+        background-color: var(--bsp-surface-2);
+        border-color: var(--bsp-primary);
+        color: var(--bsp-primary);
+    }
+
+    /* Inputs: focus ring */
+    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] > div,
+    .stMultiSelect div[data-baseweb="select"] > div, .stTextArea textarea {
+        border-radius: 9px !important;
+        border-color: var(--bsp-border) !important;
+        font-size: 0.97rem !important;
+        transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .stTextInput input:focus, .stNumberInput input:focus, .stTextArea textarea:focus {
+        border-color: var(--bsp-primary) !important;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12) !important;
+        outline: none !important;
+    }
+
+    /* Sliders */
+    .stSlider [role="slider"] { box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.15); }
+
+    /* Radio + Checkbox */
+    [data-testid="stRadio"] label, [data-testid="stCheckbox"] label {
+        font-weight: 500;
+    }
+    [data-testid="stCheckbox"] [role="checkbox"][aria-checked="true"] {
+        background-color: var(--bsp-primary) !important;
+        border-color: var(--bsp-primary) !important;
+    }
+
+    /* File uploader */
+    [data-testid="stFileUploader"] section,
+    [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzone"] {
+        border: 2px dashed var(--bsp-border) !important;
+        border-radius: 12px !important;
+        background-color: var(--bsp-surface) !important;
+        transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+    [data-testid="stFileUploader"] section:hover,
+    [data-testid="stFileUploader"] [data-testid="stFileUploaderDropzone"]:hover {
+        border-color: var(--bsp-primary) !important;
+        background-color: rgba(79, 70, 229, 0.04) !important;
+    }
+    [data-testid="stFileUploader"] button {
+        border-radius: 8px !important;
+    }
+
+    /* Sidebar — wider + nicer background.
+       Width override is gated to aria-expanded="true" so streamlit's
+       collapse animation (which uses a negative margin sized to the
+       original width) can still hide the panel completely. */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #FFFFFF 0%, var(--bsp-surface) 100%);
+        border-right: 1px solid var(--bsp-border-soft);
+    }
+    section[data-testid="stSidebar"][aria-expanded="true"] {
+        width: var(--bsp-sidebar-width) !important;
+        min-width: var(--bsp-sidebar-width) !important;
+    }
+    section[data-testid="stSidebar"][aria-expanded="true"] > div:first-child {
+        width: var(--bsp-sidebar-width) !important;
+    }
+    section[data-testid="stSidebar"] > div {
+        padding-top: 1rem;
+    }
+
+    section[data-testid="stSidebar"] hr {
+        margin: 0.6rem 0 1rem;
+        border-color: var(--bsp-border-soft);
+    }
+
+    /* Sidebar logo: let SVG be a bit larger */
+    section[data-testid="stSidebar"] [data-testid="stSidebarHeader"] img,
+    section[data-testid="stSidebar"] [data-testid="stImage"] img {
+        max-height: 56px;
+        margin-bottom: 0.25rem;
+    }
+    [data-testid="stHeader"] [data-testid="stImage"] img {
+        max-height: 36px;
+    }
+
+    /* Sidebar nav list (st.navigation) */
+    section[data-testid="stSidebar"] [role="navigation"] a,
+    section[data-testid="stSidebar"] nav a {
+        border-radius: 10px;
+        padding: 0.55rem 0.75rem;
+        font-weight: 500;
+        font-size: 1rem;
+        margin: 0.1rem 0;
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    section[data-testid="stSidebar"] [role="navigation"] a:hover,
+    section[data-testid="stSidebar"] nav a:hover {
+        background-color: rgba(79, 70, 229, 0.08);
+        color: var(--bsp-primary);
+        text-decoration: none;
+    }
+    section[data-testid="stSidebar"] [role="navigation"] a[aria-current="page"],
+    section[data-testid="stSidebar"] nav a[aria-current="page"] {
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.10) 0%, rgba(6, 182, 212, 0.10) 100%);
+        color: var(--bsp-primary) !important;
+        font-weight: 600;
+    }
+
+    section[data-testid="stSidebar"] .stCaption, section[data-testid="stSidebar"] small {
+        font-size: 0.85rem;
+    }
+
+    /* Dataframes / data editors */
+    [data-testid="stDataFrame"], [data-testid="stDataEditor"] {
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid var(--bsp-border-soft);
+    }
+
+    /* Alerts */
+    [data-testid="stAlert"] {
+        border-radius: 12px;
+        border: 1px solid transparent;
+        padding: 0.95rem 1.05rem;
+        font-size: 0.97rem;
+    }
+
+    /* Metrics */
+    [data-testid="stMetric"] {
+        background-color: var(--bsp-surface);
+        border: 1px solid var(--bsp-border-soft);
+        border-radius: 12px;
+        padding: 1rem 1.1rem;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    [data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--bsp-shadow-md);
+        border-color: var(--bsp-primary);
+    }
+    [data-testid="stMetricLabel"] p {
+        color: var(--bsp-text-muted);
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+    }
+    [data-testid="stMetricValue"] {
+        font-weight: 700;
+        color: var(--bsp-text);
+        font-size: 1.55rem !important;
+    }
+
+    /* Plotly chart container */
+    [data-testid="stPlotlyChart"] {
+        border-radius: 10px;
+        border: 1px solid var(--bsp-border-soft);
+        padding: 0.4rem;
+        background-color: var(--bsp-bg);
+    }
+
+    /* Status box */
+    [data-testid="stStatusWidget"], [data-testid="stStatus"] {
+        border-radius: 12px;
+    }
+
+    /* Hero gradient title (Home) */
+    .bsp-gradient {
+        background: linear-gradient(135deg, var(--bsp-primary) 0%, var(--bsp-accent) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+    }
+    .bsp-eyebrow {
+        display: inline-block;
+        padding: 0.3rem 0.75rem;
+        background-color: rgba(79, 70, 229, 0.08);
+        color: var(--bsp-primary);
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        margin-bottom: 0.75rem;
+    }
+    .bsp-hero {
+        padding: 2.6rem 2.6rem;
+        border-radius: 20px;
+        background:
+            radial-gradient(circle at 0% 0%, rgba(79, 70, 229, 0.10), transparent 55%),
+            radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.10), transparent 55%),
+            #FFFFFF;
+        border: 1px solid var(--bsp-border-soft);
+        box-shadow: var(--bsp-shadow-md);
+        margin-bottom: 1.6rem;
+    }
+    .bsp-hero h1 {
+        font-size: 3.2rem;
+        line-height: 1.1;
+        margin-bottom: 0.85rem;
+    }
+    .bsp-hero p.lead {
+        color: var(--bsp-text-muted);
+        font-size: 1.1rem;
+        max-width: 46rem;
+        margin-bottom: 1.2rem;
+    }
+
+    /* Page subtitle right below the auto page title */
+    .bsp-subtitle {
+        color: var(--bsp-text-muted);
+        font-size: 1rem;
+        margin-top: -0.6rem;
+        margin-bottom: 1.4rem;
+    }
+
+    /* Sidebar tagline block */
+    .bsp-tagline {
+        font-size: 0.85rem;
+        color: var(--bsp-text-muted);
+        line-height: 1.5;
+        padding: 0.2rem 0.1rem 0.4rem;
+    }
+
+    /* Empty-state card */
+    .bsp-empty {
+        text-align: center;
+        padding: 1.6rem;
+        border-radius: 14px;
+        border: 1px dashed var(--bsp-border);
+        background-color: var(--bsp-surface);
+        color: var(--bsp-text-muted);
+    }
+    .bsp-empty .bsp-empty-icon { font-size: 1.8rem; margin-bottom: 0.35rem; }
+    .bsp-empty .bsp-empty-title { color: var(--bsp-text); font-weight: 600; margin-bottom: 0.25rem; font-size: 1.02rem; }
+</style>
+"""
+
+
+st.set_page_config(
+    page_title='BaySpec',
+    page_icon='.streamlit/logo_mark.svg',
+    layout='wide',
+    initial_sidebar_state='expanded',
+)
+
+st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
+
+st.logo(
+    '.streamlit/logo.svg',
+    icon_image='.streamlit/logo_mark.svg',
+    size='large',
+)
+
+with st.sidebar:
+    st.markdown(
+        '<div class="bsp-tagline">Bayesian spectral fitting workbench '
+        'for high-energy astrophysics.</div>',
+        unsafe_allow_html=True,
+    )
+    st.divider()
 
 nav = get_nav_from_toml('.streamlit/pages.toml')
-
-st.logo('.streamlit/logo.png')
 
 pg = st.navigation(nav)
 
