@@ -523,7 +523,8 @@ input:focus, select:focus, textarea:focus {
   gap: .75rem;
   flex-wrap: wrap;
 }
-.inline-form input[type="text"] { flex: 1 1 0; min-width: 0; }
+.inline-form input[type="text"] { flex: 1 1 180px; min-width: 0; max-width: 340px; font-size: .82rem; }
+.inline-form input[type="text"]::placeholder { font-size: .8rem; }
 
 #model-list { display: flex; flex-direction: column; gap: 1rem; }
 
@@ -1284,7 +1285,8 @@ details.infer-collapse > .infer-collapse-body { margin-top: 1rem; }
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-sm);
 }
-.create-toolbar input[type="text"] { flex: 1 1 0; min-width: 0; max-width: 240px; }
+.create-toolbar input[type="text"] { flex: 1 1 180px; min-width: 0; max-width: 340px; font-size: .82rem; }
+.create-toolbar input[type="text"]::placeholder { font-size: .8rem; }
 
 /* ===== Stat badge (shown next to unit name) ===== */
 .stat-badge {

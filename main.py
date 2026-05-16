@@ -246,7 +246,7 @@ async def editor_page(request: Request):
 def _render_container_list_s(s: dict, request: Request):
     return templates.TemplateResponse(
         request=request,
-        name="partials/data_container_list.html",
+        name="partials/data_list.html",
         context={"s": s},
     )
 
@@ -254,7 +254,7 @@ def _render_container_list_s(s: dict, request: Request):
 def _render_container_s(data_key: str, s: dict, request: Request):
     return templates.TemplateResponse(
         request=request,
-        name="partials/data_container.html",
+        name="partials/data_card.html",
         context={"s": s, "data_key": data_key},
     )
 

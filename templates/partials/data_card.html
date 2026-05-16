@@ -143,8 +143,8 @@
         onsubmit="setTimeout(()=>this.reset(), 0)"
       >
         <div class="form-group">
-          <label>Unit name <span class="caption">(optional — auto-assigned if empty)</span></label>
-          <input type="text" name="unit_key" placeholder="e.g. unit{{ d.data|length + 1 }}" />
+          <label>Unit name <span class="caption">(optional)</span></label>
+          <input type="text" name="unit_key" placeholder="auto-assigned if empty, e.g. unit{{ d.data|length + 1 }}" />
         </div>
 
         <div class="form-group">
@@ -164,9 +164,9 @@
           <div class="form-details-body">
             <div class="form-group"><label>Source spectrum <span class="req">*</span></label><input type="file" name="src" /></div>
             <div class="form-group"><label>Background spectrum</label><input type="file" name="bkg" /></div>
-            <div class="form-group"><label>Response matrix <code>(rsp)</code></label><input type="file" name="rsp" /></div>
-            <div class="form-group"><label>Redistribution matrix <code>(rmf)</code></label><input type="file" name="rmf" /></div>
-            <div class="form-group"><label>Ancillary response <code>(arf)</code></label><input type="file" name="arf" /></div>
+            <div class="form-group"><label>Response matrix</label><input type="file" name="rsp" /></div>
+            <div class="form-group"><label>Redistribution matrix</label><input type="file" name="rmf" /></div>
+            <div class="form-group"><label>Ancillary response</label><input type="file" name="arf" /></div>
           </div>
         </details>
 
@@ -174,32 +174,18 @@
           <div class="form-group">
             <label>Fit statistic</label>
             <select name="stat">
-              <optgroup label="Poisson–Poisson">
-                <option value="pgstat" selected>pgstat — profile Gaussian background</option>
-                <option value="cstat">cstat — Cash statistic</option>
-                <option value="ppstat">ppstat — Poisson/Poisson</option>
-                <option value="pstat">pstat — Poisson</option>
-                <option value="gstat">gstat — Gaussian</option>
-              </optgroup>
-              <optgroup label="χ² based">
-                <option value="chi2">chi2 — chi-squared</option>
-              </optgroup>
-              <optgroup label="XSPEC-style">
-                <option value="Xppstat">Xppstat</option>
-                <option value="Xcstat">Xcstat</option>
-                <option value="Xpgstat">Xpgstat</option>
-              </optgroup>
-              <optgroup label="Upper-limit">
-                <option value="ULppstat">ULppstat</option>
-                <option value="ULpgstat">ULpgstat</option>
-              </optgroup>
+              <option value="pgstat" selected>pgstat — Poisson source + Gaussian background</option>
+              <option value="cstat">cstat — Cash statistic</option>
+              <option value="ppstat">ppstat — Poisson source + Poisson background</option>
+              <option value="pstat">pstat — Poisson data</option>
+              <option value="gstat">gstat — Gaussian data</option>
+              <option value="chi2">chi2 — chi-squared</option>
             </select>
           </div>
 
           <div class="form-group">
             <label>Notice energy range</label>
-            <input type="text" name="notc_str" placeholder="e.g. 8-900" />
-            <p class="field-hint">Format: <code>lo-hi</code>; separate multiple ranges with <code>;</code></p>
+            <input type="text" name="notc_str" placeholder="Format: lo-hi; separate multiple ranges with ; e.g. 8-900" />
           </div>
         </div>
 
