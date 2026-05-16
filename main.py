@@ -862,12 +862,16 @@ async def update_component(mkey: str, ckey: str, request: Request):
 async def compose_model(
     mkey: str,
     request: Request,
-    expression: str = Form(...),
+    expression: str = Form(""),
 ):
     _, s, _ = _session(request)
     components = s["model_component"].get(mkey, {})
     s["model_state"].setdefault(mkey, {})["expression"] = expression
     error = None
+    if not expression.strip():
+        s["model"].pop(mkey, None)
+        s["model_state"][mkey]["error"] = None
+        return _render_model_card(mkey, s, request)
     try:
         composed = eval(expression, {"__builtins__": {}}, dict(components))  # noqa: S307
         s["model"][mkey] = composed
@@ -967,6 +971,7 @@ def _derived_pairs(s: dict) -> list[dict]:
 
 def _posterior_html(post) -> str:
     """Return HTML fragment with parameter CI table + stat + IC tables."""
+
     def _fmt(v, fmt=".4g"):
         return format(v, fmt) if v is not None else "—"
 
