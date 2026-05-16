@@ -16,13 +16,17 @@ def _new() -> dict[str, Any]:
         "model_state": {},
         "infer": None,
         "infer_state": {
-            "pairs": [],
+            "pairs": [],       # Auto-derived from data↔model bindings
+            "nlink": 0,        # Number of parameter link groups
+            "links": {},       # {idx: [par_id, ...]}
             "sampler": "emcee",
             "nstep": 1000,
             "discard": 100,
             "nlive": 400,
             "savepath": "./infer_out",
+            "resume": False,
             "result": None,
+            "posterior": None,
             "error": None,
         },
         "custom_models": {},

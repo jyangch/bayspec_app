@@ -238,7 +238,9 @@ async def create_container(request: Request, data_key: str = Form("")):
         resp = _render_container_list(request)
     else:
         from bayspec.data.data import Data
-        s["data"][requested] = Data()
+        d = Data()
+        d.data = d.data  # trigger _update to set .names/.srcs/… (bayspec 0.3.11 init nuance)
+        s["data"][requested] = d
         s["data_state"][requested] = {"model_binding": None, "units": {}}
         resp = _render_container_list(request)
     if is_new:
@@ -729,8 +731,28 @@ async def model_plot(mkey: str, request: Request):
 
 # ── Inference helpers ──────────────────────────────────────────────────────────
 
+def _derived_pairs(s: dict) -> list[dict]:
+    """Scan bidirectional data↔model bindings to auto-derive inference pairs."""
+    pairs = []
+    seen = set()
+    for dk, dst in s.get("data_state", {}).items():
+        mk = dst.get("model_binding")
+        if not mk:
+            continue
+        if mk not in s.get("model", {}):
+            continue
+        mst = s.get("model_state", {}).get(mk, {})
+        if mst.get("data_binding") != dk:
+            continue
+        key = (dk, mk)
+        if key not in seen:
+            seen.add(key)
+            pairs.append({"data": dk, "model": mk})
+    return pairs
+
+
 def _posterior_html(post) -> str:
-    """Return HTML fragment with parameter CI table + stat table."""
+    """Return HTML fragment with parameter CI table + stat + IC tables."""
     fp = post.free_par_info.data_dict
     par_rows = "".join(
         f"<tr><td class='param-name'>{par}</td>"
@@ -766,15 +788,19 @@ def _posterior_html(post) -> str:
         f"<tbody>{stat_rows}</tbody></table>"
     )
 
-    lnz_html = ""
-    try:
-        lnz = post.lnZ
-        if lnz is not None:
-            lnz_html = f"<p class='caption' style='margin-top:.6rem'>ln Z = {lnz:.3f}</p>"
-    except Exception:
-        pass
+    ic = post.IC_info.data_dict
+    ic_rows = "".join(
+        f"<tr><td class='param-name'>{k}</td><td>{ic[k][0]:.4g}</td></tr>"
+        for k in ic
+    )
+    ic_html = (
+        "<div class='param-section-label' style='margin:.75rem 0 .4rem'>Information Criteria</div>"
+        "<table class='param-table'>"
+        "<thead><tr><th>Criteria</th><th>Value</th></tr></thead>"
+        f"<tbody>{ic_rows}</tbody></table>"
+    )
 
-    return par_html + stat_html + lnz_html
+    return par_html + stat_html + ic_html
 
 
 def _render_infer_panel(request: Request):
@@ -788,6 +814,51 @@ def _render_infer_panel(request: Request):
 
 def _render_infer_panel_str(s: dict) -> str:
     return templates.env.get_template("partials/infer_panel.html").render(s=s)
+
+
+def _model_spectra_div(post, mkey: str, style: str, comp_keys: list[str], s: dict) -> str:
+    """Post-fit component spectra on a log E grid."""
+    import numpy as np
+    import plotly.graph_objects as go
+    import plotly.offline as pyo
+
+    post.at_par(post.par_best)
+    components = s["model_component"].get(mkey, {})
+    E = np.logspace(0, 4, 300)
+
+    fig = go.Figure()
+    for ck in comp_keys:
+        comp = components.get(ck)
+        if comp is None:
+            continue
+        NE = np.asarray(comp.func(E), dtype=float)
+        if style == "vFv":
+            y = E ** 2 * NE
+        elif style == "Fv":
+            y = E * NE
+        elif style == "NE":
+            y = NE
+        else:
+            y = NE
+        fig.add_trace(go.Scatter(
+            x=E, y=y, mode="lines", name=ck,
+            line=dict(width=2),
+        ))
+
+    ylabels = {"vFv": "E² N(E)", "Fv": "E N(E)", "NE": "N(E)", "NoU": "func(E)"}
+    fig.update_layout(
+        xaxis=dict(title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"),
+        yaxis=dict(title=ylabels.get(style, "func(E)"), type="log",
+                   showgrid=True, gridcolor="#F1F5F9"),
+        template="simple_white",
+        margin=dict(l=70, r=20, t=20, b=50),
+        height=360,
+        showlegend=True,
+        legend=dict(x=0.98, y=0.98, xanchor="right", yanchor="top"),
+        font=dict(family="Inter, system-ui, sans-serif", size=12, color="#0F172A"),
+        paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
+    )
+    return pyo.plot(fig, output_type="div", include_plotlyjs=False)
 
 
 def _corner_plot_div(post) -> str:
@@ -878,26 +949,135 @@ def _spectra_plot_div(post) -> str:
 
 # ── Inference API routes ───────────────────────────────────────────────────────
 
-@app.post("/infer/pairs", response_class=HTMLResponse)
-async def add_infer_pair(
-    request: Request,
-    data_key: str = Form(...),
-    model_key: str = Form(...),
-):
+@app.post("/infer/build", response_class=HTMLResponse)
+async def build_infer(request: Request):
+    """Auto-derive pairs from data↔model bindings and build BayesInfer."""
     _, s, _ = _session(request)
     ist = s["infer_state"]
-    ist.setdefault("pairs", [])
-    ist["pairs"].append({"data": data_key, "model": model_key})
+
+    pairs = _derived_pairs(s)
+    ist["pairs"] = pairs
+    ist["links"] = {}
+    ist["nlink"] = 0
+    s["infer"] = None
+    ist["result"] = None
+    ist["posterior"] = None
+    ist["error"] = None
+
+    if not pairs:
+        ist["error"] = (
+            "No bidirectional data↔model bindings found. "
+            "Go to the Data or Model page and bind containers to each other."
+        )
+        return _render_infer_panel(request)
+
+    try:
+        from bayspec.infer.infer import BayesInfer
+
+        infer_pairs = []
+        for p in pairs:
+            dc = s["data"].get(p["data"])
+            m = s["model"].get(p["model"])
+            if dc is None or m is None:
+                continue
+            infer_pairs.append((dc, m))
+
+        if not infer_pairs:
+            ist["error"] = "No valid pairs could be constructed."
+            return _render_infer_panel(request)
+
+        # Check each Data container has at least one DataUnit
+        for dc, _ in infer_pairs:
+            if not dc.data:
+                ist["error"] = (
+                    f"Data container has no units. "
+                    f"Upload spectral files on the Data page first."
+                )
+                return _render_infer_panel(request)
+
+        s["infer"] = BayesInfer(pairs=infer_pairs)
+    except Exception as exc:
+        ist["error"] = str(exc)
+
     return _render_infer_panel(request)
 
 
-@app.delete("/infer/pairs/{idx}", response_class=HTMLResponse)
-async def delete_infer_pair(idx: int, request: Request):
+@app.post("/infer/link", response_class=HTMLResponse)
+async def link_params(request: Request, nlink: int = Form(0)):
     _, s, _ = _session(request)
-    pairs = s["infer_state"].get("pairs", [])
-    if 0 <= idx < len(pairs):
-        pairs.pop(idx)
+    ist = s["infer_state"]
+    infer = s.get("infer")
+    if infer is None:
+        ist["error"] = "Build inference pairs first."
+        return _render_infer_panel(request)
+
+    for pid in list(infer.par.keys()):
+        infer.unlink(pid)
+
+    ist["links"] = {}
+    body = await request.form()
+    for i in range(nlink):
+        key = f"link_{i}"
+        raw = body.getlist(key)
+        pids = [int(r[4:]) for r in raw if r.startswith("par#")]
+        if len(pids) > 1:
+            infer.link(pids)
+            ist["links"][i] = pids
+
+    ist["nlink"] = nlink
+    ist["error"] = None
     return _render_infer_panel(request)
+
+
+@app.post("/infer/manual", response_class=HTMLResponse)
+async def manual_fit(request: Request):
+    _, s, _ = _session(request)
+    ist = s["infer_state"]
+    infer = s.get("infer")
+    if infer is None:
+        ist["error"] = "Build inference pairs first."
+        return _render_infer_panel(request)
+
+    form = await request.form()
+    now_par = []
+    for j, (_, par) in enumerate(infer.free_par.items(), start=1):
+        field = f"par_val_{j}"
+        raw = form.get(field)
+        if raw is not None and raw != "":
+            try:
+                par.val = float(raw)
+            except (ValueError, TypeError):
+                pass
+        now_par.append(par.val)
+    infer.at_par(now_par)
+
+    sd = infer.stat_info.data_dict
+    stat_rows = "".join(
+        f"<tr><td class='param-name'>{d}</td><td>{m}</td>"
+        f"<td>{st}</td><td>{v}</td><td>{b}</td></tr>"
+        for d, m, st, v, b in zip(sd["Data"], sd["Model"], sd["Statistic"], sd["Value"], sd["Bins"])
+    )
+    return HTMLResponse(
+        "<table class='param-table' style='margin-top:.5rem'>"
+        "<thead><tr><th>Data</th><th>Model</th><th>Statistic</th>"
+        "<th>Value</th><th>Bins</th></tr></thead>"
+        f"<tbody>{stat_rows}</tbody></table>"
+    )
+
+
+@app.get("/infer/manual/plot", response_class=HTMLResponse)
+async def manual_fit_plot(request: Request):
+    _, s, _ = _session(request)
+    infer = s.get("infer")
+    if infer is None:
+        return HTMLResponse("<p class='alert alert-warning'>No inference built.</p>")
+    try:
+        from bayspec.util.plot import Plot
+        fig = Plot.infer(infer, style="CE")
+        import plotly.offline as pyo
+        return HTMLResponse(pyo.plot(fig.fig, output_type="div", include_plotlyjs=False))
+    except Exception as exc:
+        return HTMLResponse(f"<p class='alert alert-danger'>Plot error: {exc}</p>")
 
 
 @app.post("/infer/run", response_class=HTMLResponse)
@@ -908,36 +1088,40 @@ async def run_infer(
     discard: int = Form(100),
     nlive: int = Form(400),
     savepath: str = Form("./infer_out"),
+    resume: str = Form("No"),
 ):
     _, s, _ = _session(request)
     ist = s["infer_state"]
     ist.update({
         "sampler": sampler, "nstep": nstep, "discard": discard,
         "nlive": nlive, "savepath": savepath, "result": None, "error": None,
+        "resume": resume == "Yes",
     })
+
+    do_resume = ist.get("resume", False)
 
     pairs = ist.get("pairs", [])
     if not pairs:
-        ist["error"] = "Add at least one (data, model) pair before running."
+        ist["error"] = "No pairs — click Build inference first."
         return _render_infer_panel(request)
 
     # Validate all pairs and build BayesInfer before starting the thread
     try:
-        from bayspec.data.data import Data
-        from bayspec.infer.infer import BayesInfer
+        from bayspec.infer.infer import BayesInfer, MaxLikeFit
 
         infer_pairs = []
         for p in pairs:
-            du = s["data"].get(p["data"])
+            dc = s["data"].get(p["data"])
             m = s["model"].get(p["model"])
-            if du is None:
-                raise ValueError(f"Data unit '{p['data']}' not found.")
-            if m is None:
-                raise ValueError(f"Model '{p['model']}' not yet composed.")
-            infer_pairs.append((Data(data=[(p["data"], du)]), m))
+            if dc is None or m is None:
+                continue
+            infer_pairs.append((dc, m))
 
-        bi = BayesInfer(pairs=infer_pairs)
-        s["infer"] = bi
+        is_bayesian = sampler in ("emcee", "multinest")
+        if is_bayesian:
+            s["infer"] = BayesInfer(pairs=infer_pairs)
+        else:
+            s["infer"] = MaxLikeFit(pairs=infer_pairs)
         Path(savepath).mkdir(parents=True, exist_ok=True)
     except Exception as exc:
         ist["error"] = str(exc)
@@ -950,22 +1134,31 @@ async def run_infer(
     def _worker():
         task = _tasks[task_id]
         try:
-            task["messages"].append(
-                f"BayesInfer ready — {len(infer_pairs)} pair(s), {bi.free_nparams} free parameter(s)"
-            )
-            if sampler == "emcee":
-                task["messages"].append(f"emcee: nstep={nstep}, discard={discard}")
-                post = bi.emcee(nstep=nstep, discard=discard, savepath=savepath)
+            n = s["infer"].free_nparams
+            task["messages"].append(f"Ready — {n} free parameter(s)")
+            if is_bayesian:
+                bi = s["infer"]
+                if sampler == "emcee":
+                    task["messages"].append(f"emcee: nstep={nstep}, discard={discard}")
+                    post = bi.emcee(nstep=nstep, discard=discard, savepath=savepath)
+                else:
+                    task["messages"].append(f"multinest: nlive={nlive}")
+                    post = bi.multinest(nlive=nlive, resume=do_resume, savepath=savepath)
             else:
-                task["messages"].append(f"multinest: nlive={nlive}")
-                post = bi.multinest(nlive=nlive, savepath=savepath)
+                fit = s["infer"]
+                task["messages"].append(f"Optimizer: {sampler}")
+                if sampler == "lmfit":
+                    post = fit.lmfit(savepath=savepath)
+                else:
+                    post = fit.iminuit(savepath=savepath)
+
             result = _posterior_html(post)
             ist["posterior"] = post
             ist["result"] = result
             ist["error"] = None
             task["result_html"] = result
             task["status"] = "done"
-            task["messages"].append("Sampling complete.")
+            task["messages"].append("Complete.")
         except Exception as exc:
             ist["error"] = str(exc)
             task["error"] = str(exc)
@@ -1060,6 +1253,26 @@ async def infer_spectra_plot(request: Request):
         return HTMLResponse(_spectra_plot_div(post))
     except Exception as exc:
         return HTMLResponse(f"<p class='alert alert-danger'>Spectra plot error: {exc}</p>")
+
+
+@app.get("/infer/plots/model", response_class=HTMLResponse)
+async def infer_model_plot(
+    request: Request,
+    mkey: str = "",
+    style: str = "vFv",
+    comps: str = "",
+):
+    _, s, _ = _session(request)
+    post = s["infer_state"].get("posterior")
+    if post is None:
+        return HTMLResponse("<p class='alert alert-warning'>No posterior available.</p>")
+    comp_keys = [c.strip() for c in comps.split(",") if c.strip()]
+    if not comp_keys:
+        return HTMLResponse("<p class='alert alert-warning'>Select at least one component.</p>")
+    try:
+        return HTMLResponse(_model_spectra_div(post, mkey, style, comp_keys, s))
+    except Exception as exc:
+        return HTMLResponse(f"<p class='alert alert-danger'>Model spectra error: {exc}</p>")
 
 
 # ── Editor helpers ─────────────────────────────────────────────────────────────

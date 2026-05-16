@@ -4,45 +4,7 @@
 
 {% block content %}
 <h1>Inference</h1>
-<p class="page-subtitle">Pair Data ↔ Model and run Bayesian fitting.</p>
+<p class="page-subtitle">Pair Data ↔ Model and run Bayesian fitting. Bind containers on the Data or Model page first.</p>
 
-<div class="two-col-layout">
-
-  <!-- ── Left: add pair form ── -->
-  <div class="card form-panel">
-    <h3>Add Pair</h3>
-
-    {% if not s.data %}
-      <p class="field-hint">Load data units on the <a href="/data">Data</a> page first.</p>
-    {% elif not s.model %}
-      <p class="field-hint">Build and compose models on the <a href="/model">Model</a> page first.</p>
-    {% else %}
-      <form hx-post="/infer/pairs"
-            hx-target="#infer-panel"
-            hx-swap="outerHTML">
-        <div class="form-group">
-          <label>Data unit</label>
-          <select name="data_key">
-            {% for k in s.data.keys() %}
-              <option value="{{ k }}">{{ k }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="form-group">
-          <label>Model</label>
-          <select name="model_key">
-            {% for k in s.model.keys() %}
-              <option value="{{ k }}">{{ k }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <button type="submit" class="btn btn-primary" style="width:100%">+ Add pair</button>
-      </form>
-    {% endif %}
-  </div>
-
-  <!-- ── Right: pair list + run config + results ── -->
-  {% include "partials/infer_panel.html" %}
-
-</div>
+{% include "partials/infer_panel.html" %}
 {% endblock %}

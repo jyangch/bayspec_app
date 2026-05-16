@@ -1,37 +1,157 @@
 {% set ist = s.infer_state %}
+{% set infer = s.get('infer') %}
 
 <div id="infer-panel">
 
-{% if not ist.get("pairs") %}
-  <div class="empty-state">
-    <div class="empty-icon">⚡</div>
-    <div class="empty-title">No pairs yet</div>
-    <p>Select a data unit and model on the left, then click <b>+ Add pair</b>.</p>
+{% if not ist.get("pairs") and not infer %}
+  <div class="card" style="text-align:center;padding:2rem">
+    <div class="empty-icon" style="font-size:2rem;margin-bottom:.5rem">📝</div>
+    <p style="color:var(--text-muted);margin-bottom:1rem">
+      Inference pairs are auto-derived from Data ↔ Model bindings.<br/>
+      <a href="/data">Bind a data container to a model</a> on the Data or Model page first.
+    </p>
+    <form hx-post="/infer/build"
+          hx-target="#infer-panel"
+          hx-swap="outerHTML"
+          hx-indicator="#build-spinner">
+      <button type="submit" class="btn btn-primary">
+        Build inference
+        <span id="build-spinner" class="htmx-indicator"><span class="spinner"></span></span>
+      </button>
+    </form>
+  </div>
+
+{% elif not infer and ist.get("pairs") %}
+  <div class="card" style="text-align:center;padding:2rem">
+    <p style="color:var(--text-muted);margin-bottom:.75rem">
+      {{ ist.pairs|length }} pair(s) defined.
+    </p>
+    {% if ist.get("error") %}
+      <div class="alert alert-danger" style="margin-bottom:.75rem">{{ ist.error }}</div>
+    {% endif %}
+    <form hx-post="/infer/build"
+          hx-target="#infer-panel"
+          hx-swap="outerHTML"
+          hx-indicator="#build-spinner">
+      <button type="submit" class="btn btn-primary">
+        Re-build inference
+        <span id="build-spinner" class="htmx-indicator"><span class="spinner"></span></span>
+      </button>
+    </form>
   </div>
 
 {% else %}
-
-  <!-- ── Pair list ── -->
+  <!-- Auto-derived pairs -->
   <div class="card" style="margin-bottom:1rem">
-    <h3 style="margin-top:0;margin-bottom:.75rem">Pairs</h3>
-    {% for pair in ist.get("pairs", []) %}
-    <div class="infer-pair-row">
-      <span class="unit-badge">{{ pair.data }}</span>
-      <span class="infer-arrow">→</span>
-      <span class="unit-badge model-badge">{{ pair.model }}</span>
-      <button class="btn btn-sm btn-danger"
-              style="margin-left:auto"
-              hx-delete="/infer/pairs/{{ loop.index0 }}"
-              hx-target="#infer-panel"
-              hx-swap="outerHTML"
-              hx-confirm="Remove this pair?">
-        ✕
-      </button>
+    <h3 style="margin-top:0;margin-bottom:.5rem">Pairs</h3>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      {% for pair in ist.get("pairs", []) %}
+        <span class="unit-badge">{{ pair.data }} → {{ pair.model }}</span>
+      {% endfor %}
     </div>
-    {% endfor %}
   </div>
 
-  <!-- ── Sampler config + run ── -->
+  {% if ist.get("error") %}
+    <div class="alert alert-danger">{{ ist.error }}</div>
+  {% endif %}
+
+  <!-- Config -->
+  <div class="card" style="margin-bottom:1rem">
+    <h3 style="margin-top:0;margin-bottom:.5rem">Configuration</h3>
+    {% set cfg_d = infer.cfg_info.data_dict %}
+    <table class="param-table">
+      <thead><tr><th>cfg#</th><th>Parameter</th><th>Value</th></tr></thead>
+      <tbody>
+        {% for i, p, v in zip(cfg_d["cfg#"], cfg_d["Parameter"], cfg_d["Value"]) %}
+        <tr><td>{{ i }}</td><td class="param-name">{{ p }}</td><td>{{ v }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Link parameters -->
+  <div class="card" style="margin-bottom:1rem">
+    <form hx-post="/infer/link"
+          hx-target="#infer-panel"
+          hx-swap="outerHTML">
+      <h3 style="margin-top:0;margin-bottom:.5rem">Link parameters</h3>
+      <div class="form-group">
+        <label>Number of link groups</label>
+        <input type="number" name="nlink" value="{{ ist.get('nlink', 0) }}"
+               min="0" max="20" step="1" style="max-width:120px" onchange="htmx.process(this.form)" />
+      </div>
+      {% for i in range(ist.get('nlink', 0)) %}
+        <div class="form-group">
+          <label>Link group {{ i + 1 }}</label>
+          <select name="link_{{ i }}" multiple style="height:auto;min-height:80px">
+            {% for pid in infer.par.keys() %}
+              <option value="par#{{ pid }}"
+                {% if pid in ist.get('links', {}).get(i, []) %}selected{% endif %}>
+                par#{{ pid }} — {{ infer.par[pid].expr }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+      {% endfor %}
+      <button type="submit" class="btn btn-sm">✓ Apply links</button>
+    </form>
+
+    {% if infer.par.keys() %}
+      {% set nd = infer.notable_par_info.data_dict %}
+      <div style="margin-top:.75rem">
+        <div class="param-section-label">All parameters</div>
+        <table class="param-table">
+          <thead><tr><th>#</th><th>Expression</th><th>Component</th><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
+          <tbody>
+            {% for i, e, c, p, v, pr in zip(nd["par#"], nd["Expression"], nd["Component"], nd["Parameter"], nd["Value"], nd["Prior"]) %}
+            <tr><td>{{ i }}</td><td class="param-name">{{ e }}</td>
+                <td class="param-name">{{ c }}</td><td class="param-name">{{ p }}</td>
+                <td>{{ v }}</td><td><code>{{ pr }}</code></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Manual fitting -->
+  <div class="card" style="margin-bottom:1rem">
+    <form hx-post="/infer/manual"
+          hx-target="#manual-stat"
+          hx-swap="innerHTML">
+      <h3 style="margin-top:0;margin-bottom:.5rem">Manual fitting</h3>
+      {% set fd = infer.free_par_info.data_dict %}
+      <table class="param-table">
+        <thead><tr><th>#</th><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
+        <tbody>
+          {% for idx, param, val, prior in zip(fd["par#"], fd["Parameter"], fd["Value"], fd["Prior"]) %}
+          <tr>
+            <td class="param-name">{{ idx }}</td>
+            <td class="param-name">{{ param }}</td>
+            <td><input type="number" name="par_val_{{ idx }}"
+                       value="{{ val }}" step="any" class="param-input" style="max-width:120px" /></td>
+            <td><code style="font-size:.82rem">{{ prior }}</code></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div style="margin-top:.5rem;display:flex;gap:.5rem;align-items:center">
+        <button type="submit" class="btn btn-sm">✓ Recalc</button>
+        <button type="button" class="btn btn-sm"
+                hx-get="/infer/manual/plot"
+                hx-target="#manual-plot"
+                hx-swap="innerHTML"
+                hx-indicator="#mp-spinner">
+          📊 CE spectra
+          <span id="mp-spinner" class="htmx-indicator"><span class="spinner"></span></span>
+        </button>
+      </div>
+    </form>
+    <div id="manual-stat"></div>
+    <div id="manual-plot" class="unit-plot"></div>
+  </div>
+
+  <!-- Run -->
   <div class="card" style="margin-bottom:1rem">
     <h3 style="margin-top:0;margin-bottom:.75rem">Run</h3>
     <form hx-post="/infer/run"
@@ -40,75 +160,57 @@
           hx-indicator="#run-spinner">
 
       <div class="form-group">
-        <label>Sampler</label>
-        <select name="sampler" id="sampler-select"
-                onchange="updateSamplerFields(this.value)">
-          <option value="emcee"
-            {% if ist.get('sampler','emcee') == 'emcee' %}selected{% endif %}>
-            emcee (MCMC)
-          </option>
-          <option value="multinest"
-            {% if ist.get('sampler') == 'multinest' %}selected{% endif %}>
-            multinest (Nested Sampling)
-          </option>
+        <label>Sampler / Optimizer</label>
+        <select name="sampler" id="sampler-select" onchange="updateSamplerFields(this.value)">
+          <option value="emcee" {% if ist.get('sampler','emcee') == 'emcee' %}selected{% endif %}>emcee (MCMC sampler)</option>
+          <option value="multinest" {% if ist.get('sampler') == 'multinest' %}selected{% endif %}>multinest (nested sampler)</option>
+          <option value="lmfit" {% if ist.get('sampler') == 'lmfit' %}selected{% endif %}>lmfit (optimizer)</option>
+          <option value="iminuit" {% if ist.get('sampler') == 'iminuit' %}selected{% endif %}>iminuit (optimizer)</option>
         </select>
       </div>
 
-      <div id="emcee-fields"
-           {% if ist.get('sampler') == 'multinest' %}style="display:none"{% endif %}>
+      <div id="emcee-fields" {% if ist.get('sampler') not in ('emcee',) %}style="display:none"{% endif %}>
         <div class="form-row">
-          <div class="form-group">
-            <label>nstep</label>
-            <input type="number" name="nstep"
-                   value="{{ ist.get('nstep', 1000) }}" min="1" step="1" />
-          </div>
-          <div class="form-group">
-            <label>discard</label>
-            <input type="number" name="discard"
-                   value="{{ ist.get('discard', 100) }}" min="0" step="1" />
-          </div>
+          <div class="form-group"><label>nstep</label>
+            <input type="number" name="nstep" value="{{ ist.get('nstep', 1000) }}" min="1" step="1" /></div>
+          <div class="form-group"><label>discard</label>
+            <input type="number" name="discard" value="{{ ist.get('discard', 100) }}" min="0" step="1" /></div>
         </div>
       </div>
 
-      <div id="multinest-fields"
-           {% if ist.get('sampler', 'emcee') != 'multinest' %}style="display:none"{% endif %}>
-        <div class="form-group">
-          <label>nlive</label>
-          <input type="number" name="nlive"
-                 value="{{ ist.get('nlive', 400) }}" min="50" step="1" />
-        </div>
+      <div id="multinest-fields" {% if ist.get('sampler', 'emcee') != 'multinest' %}style="display:none"{% endif %}>
+        <div class="form-group"><label>nlive</label>
+          <input type="number" name="nlive" value="{{ ist.get('nlive', 400) }}" min="50" step="1" /></div>
+      </div>
+
+      <div id="resume-row" class="form-group" {% if ist.get('sampler') not in ('emcee', 'multinest') %}style="display:none"{% endif %}>
+        <label>Resume previous run?</label>
+        <select name="resume">
+          <option value="No" {% if not ist.get('resume') %}selected{% endif %}>No</option>
+          <option value="Yes" {% if ist.get('resume') %}selected{% endif %}>Yes</option>
+        </select>
       </div>
 
       <div class="form-group">
         <label>Save path</label>
-        <input type="text" name="savepath"
-               value="{{ ist.get('savepath', './infer_out') }}" />
-        <p class="field-hint">Directory for sampler output files.</p>
+        <input type="text" name="savepath" value="{{ ist.get('savepath', './infer_out') }}" />
       </div>
 
       <button type="submit" class="btn btn-primary" style="width:100%">
         ▶ Run
         <span id="run-spinner" class="htmx-indicator"><span class="spinner"></span></span>
       </button>
-      <p class="field-hint" style="margin-top:.5rem">
-        Sampler runs in a background thread — progress streams live below.
-      </p>
     </form>
   </div>
 
-  <!-- ── Error ── -->
-  {% if ist.get("error") %}
-    <div class="alert alert-danger">{{ ist.error }}</div>
-  {% endif %}
-
-  <!-- ── Results ── -->
+  <!-- Results + Plots -->
   {% if ist.get("result") %}
-    <div class="card infer-results">
+    <div class="card" style="margin-bottom:1rem">
       <h3 style="margin-top:0;margin-bottom:.75rem">Results</h3>
       {{ ist.result | safe }}
     </div>
 
-    <div class="card" style="margin-top:1rem">
+    <div class="card" style="margin-bottom:1rem">
       <h3 style="margin-top:0;margin-bottom:.75rem">Plots</h3>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.75rem">
         <button class="btn btn-sm"
@@ -130,6 +232,40 @@
       </div>
       <div id="plot-corner"></div>
       <div id="plot-spectra"></div>
+
+      <!-- Model spectra (per pair) -->
+      {% for pair in ist.get("pairs", []) %}
+        {% set comps = s.model_component.get(pair.model, {}) %}
+        {% if comps %}
+          <div style="margin-top:1rem;border-top:1px solid var(--border-soft);padding-top:.75rem">
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+              <label class="caption" style="margin:0">Style:</label>
+              <select id="mps-{{ loop.index0 }}" class="param-select" style="width:auto">
+                <option value="vFv" selected>vFv</option>
+                <option value="Fv">Fv</option>
+                <option value="NE">NE</option>
+                <option value="NoU">NoU</option>
+              </select>
+              <label class="caption" style="margin:0">Comps:</label>
+              <select id="mpc-{{ loop.index0 }}" class="param-select" style="width:auto" multiple>
+                {% for ck in comps.keys() %}
+                  <option value="{{ ck }}" selected>{{ ck }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-sm"
+                      hx-get="/infer/plots/model"
+                      hx-vals='js:{style:document.getElementById("mps-{{ loop.index0 }}").value,comps:[...document.getElementById("mpc-{{ loop.index0 }}").selectedOptions].map(function(o){return o.value}).join(","),mkey:"{{ pair.model }}"}'
+                      hx-target="#mplot-{{ loop.index0 }}"
+                      hx-swap="innerHTML"
+                      hx-indicator="#mpsp-{{ loop.index0 }}">
+                🌊 Show
+                <span id="mpsp-{{ loop.index0 }}" class="htmx-indicator"><span class="spinner"></span></span>
+              </button>
+            </div>
+            <div id="mplot-{{ loop.index0 }}" class="unit-plot"></div>
+          </div>
+        {% endif %}
+      {% endfor %}
     </div>
   {% endif %}
 
@@ -139,7 +275,8 @@
 
 <script>
 function updateSamplerFields(val) {
-  document.getElementById('emcee-fields').style.display = val === 'emcee' ? '' : 'none';
-  document.getElementById('multinest-fields').style.display = val === 'multinest' ? '' : 'none';
+  document.getElementById('emcee-fields').style.display = (val === 'emcee') ? '' : 'none';
+  document.getElementById('multinest-fields').style.display = (val === 'multinest') ? '' : 'none';
+  document.getElementById('resume-row').style.display = (val === 'emcee' || val === 'multinest') ? '' : 'none';
 }
 </script>
