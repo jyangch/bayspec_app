@@ -5,11 +5,12 @@ import uuid
 from pathlib import Path
 from typing import Optional
 
-import state
 from fastapi import FastAPI, File, Form, Request, UploadFile
 from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+
+import state
 
 app = FastAPI(title="BaySpec")
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -17,6 +18,7 @@ templates = Jinja2Templates(directory="templates")
 templates.env.globals["zip"] = zip
 
 from bayspec.model.local import local_models as _local_models
+
 templates.env.globals["local_model_names"] = list(_local_models.keys())
 
 SESSION_COOKIE = "bsp_session"
@@ -118,8 +120,14 @@ def _counts_plot_div(unit) -> str:
     half_w = unit.rsp_chbin_width.astype(float) / 2
 
     def _err_x():
-        return dict(type="data", symmetric=False, array=half_w, arrayminus=half_w,
-                    thickness=1.2, width=0)
+        return dict(
+            type="data",
+            symmetric=False,
+            array=half_w,
+            arrayminus=half_w,
+            thickness=1.2,
+            width=0,
+        )
 
     def _err_y(arr):
         return dict(type="data", array=arr, thickness=1.2, width=0)
@@ -128,40 +136,59 @@ def _counts_plot_div(unit) -> str:
 
     src_y = unit.src_ctsspec.astype(float)
     src_e = unit.src_ctsspec_error.astype(float)
-    fig.add_trace(go.Scatter(
-        x=x, y=src_y,
-        mode="markers", name="Source",
-        error_x=_err_x(), error_y=_err_y(src_e),
-        marker=dict(symbol="circle", size=3, color="#4F46E5"),
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=src_y,
+            mode="markers",
+            name="Source",
+            error_x=_err_x(),
+            error_y=_err_y(src_e),
+            marker=dict(symbol="circle", size=3, color="#4F46E5"),
+        )
+    )
 
     try:
         bkg_y = unit.bkg_ctsspec.astype(float)
         bkg_e = unit.bkg_ctsspec_error.astype(float)
-        fig.add_trace(go.Scatter(
-            x=x, y=bkg_y,
-            mode="markers", name="Background",
-            error_x=_err_x(), error_y=_err_y(bkg_e),
-            marker=dict(symbol="circle", size=3, color="#94A3B8"),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=bkg_y,
+                mode="markers",
+                name="Background",
+                error_x=_err_x(),
+                error_y=_err_y(bkg_e),
+                marker=dict(symbol="circle", size=3, color="#94A3B8"),
+            )
+        )
     except Exception:
         pass
 
     try:
         net_y = unit.net_ctsspec.astype(float)
         net_e = unit.net_ctsspec_error.astype(float)
-        fig.add_trace(go.Scatter(
-            x=x, y=net_y,
-            mode="markers", name="Net",
-            error_x=_err_x(), error_y=_err_y(net_e),
-            marker=dict(symbol="circle", size=3, color="#10B981"),
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=net_y,
+                mode="markers",
+                name="Net",
+                error_x=_err_x(),
+                error_y=_err_y(net_e),
+                marker=dict(symbol="circle", size=3, color="#10B981"),
+            )
+        )
     except Exception:
         pass
 
     fig.update_layout(
-        xaxis=dict(title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"),
-        yaxis=dict(title="Counts s⁻¹ keV⁻¹", type="log", showgrid=True, gridcolor="#F1F5F9"),
+        xaxis=dict(
+            title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"
+        ),
+        yaxis=dict(
+            title="Counts s⁻¹ keV⁻¹", type="log", showgrid=True, gridcolor="#F1F5F9"
+        ),
         template="simple_white",
         margin=dict(l=65, r=20, t=20, b=50),
         height=460,
@@ -176,6 +203,7 @@ def _counts_plot_div(unit) -> str:
 
 
 # ── Page routes ────────────────────────────────────────────────────────────────
+
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -204,8 +232,8 @@ async def editor_page(request: Request):
 
 # ── Data helpers ───────────────────────────────────────────────────────────────
 
-def _render_container_list(request: Request):
-    _, s, _ = _session(request)
+
+def _render_container_list_s(s: dict, request: Request):
     return templates.TemplateResponse(
         request=request,
         name="partials/data_container_list.html",
@@ -213,8 +241,7 @@ def _render_container_list(request: Request):
     )
 
 
-def _render_container(data_key: str, request: Request):
-    _, s, _ = _session(request)
+def _render_container_s(data_key: str, s: dict, request: Request):
     return templates.TemplateResponse(
         request=request,
         name="partials/data_container.html",
@@ -223,6 +250,7 @@ def _render_container(data_key: str, request: Request):
 
 
 # ── Data API routes ────────────────────────────────────────────────────────────
+
 
 @app.post("/data/containers", response_class=HTMLResponse)
 async def create_container(request: Request, data_key: str = Form("")):
@@ -235,14 +263,17 @@ async def create_container(request: Request, data_key: str = Form("")):
         requested = f"Data{n}"
     if requested in s["data"]:
         # Idempotent: silently ignore duplicate creation
-        resp = _render_container_list(request)
+        resp = _render_container_list_s(s, request)
     else:
         from bayspec.data.data import Data
+
         d = Data()
-        d.data = d.data  # trigger _update to set .names/.srcs/… (bayspec 0.3.11 init nuance)
+        d.data = (
+            d.data
+        )  # trigger _update to set .names/.srcs/… (bayspec 0.3.11 init nuance)
         s["data"][requested] = d
         s["data_state"][requested] = {"model_binding": None, "units": {}}
-        resp = _render_container_list(request)
+        resp = _render_container_list_s(s, request)
     if is_new:
         resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite="lax")
     return resp
@@ -255,11 +286,12 @@ async def delete_container(data_key: str, request: Request):
     s["data_state"].pop(data_key, None)
 
     import shutil
+
     container_dir = UPLOAD_DIR / sid / data_key
     if container_dir.exists():
         shutil.rmtree(container_dir, ignore_errors=True)
 
-    return _render_container_list(request)
+    return _render_container_list_s(s, request)
 
 
 @app.post("/data/containers/{data_key}/bind", response_class=HTMLResponse)
@@ -268,7 +300,7 @@ async def bind_model(data_key: str, request: Request, model_key: str = Form(""))
     if data_key not in s["data_state"]:
         s["data_state"][data_key] = {"model_binding": None, "units": {}}
     s["data_state"][data_key]["model_binding"] = model_key or None
-    return _render_container(data_key, request)
+    return _render_container_s(data_key, s, request)
 
 
 @app.post("/data/containers/{data_key}/units", response_class=HTMLResponse)
@@ -315,7 +347,13 @@ async def add_unit_to_container(
         path.write_bytes(await upload.read())
         return str(path)
 
-    paths: dict[str, Optional[str]] = {"src": None, "bkg": None, "rsp": None, "rmf": None, "arf": None}
+    paths: dict[str, Optional[str]] = {
+        "src": None,
+        "bkg": None,
+        "rsp": None,
+        "rmf": None,
+        "arf": None,
+    }
 
     # Batch upload: classify by filename
     for f in spec_files or []:
@@ -326,7 +364,13 @@ async def add_unit_to_container(
             paths[kind] = await _save(f)
 
     # Per-slot uploads override / fill remaining
-    for kind, upload in (("src", src), ("bkg", bkg), ("rsp", rsp), ("rmf", rmf), ("arf", arf)):
+    for kind, upload in (
+        ("src", src),
+        ("bkg", bkg),
+        ("rsp", rsp),
+        ("rmf", rmf),
+        ("arf", arf),
+    ):
         saved = await _save(upload)
         if saved is not None:
             paths[kind] = saved
@@ -353,7 +397,7 @@ async def add_unit_to_container(
     if paths["src"] is None:
         form_state["error"] = "Source file (src) is required."
         dst["units"][requested] = form_state
-        return _render_container(data_key, request)
+        return _render_container_s(data_key, s, request)
 
     try:
         notc = _parse_notc(notc_str)
@@ -370,6 +414,7 @@ async def add_unit_to_container(
         time_val = _parse_optional_float(time)
 
         from bayspec.data.data import DataUnit
+
         du = DataUnit(
             src=paths["src"],
             bkg=paths["bkg"],
@@ -388,7 +433,7 @@ async def add_unit_to_container(
         form_state["error"] = str(exc)
 
     dst["units"][requested] = form_state
-    return _render_container(data_key, request)
+    return _render_container_s(data_key, s, request)
 
 
 @app.delete("/data/containers/{data_key}/units/{unit_key}", response_class=HTMLResponse)
@@ -400,14 +445,17 @@ async def delete_unit_from_container(data_key: str, unit_key: str, request: Requ
     s["data_state"].get(data_key, {}).get("units", {}).pop(unit_key, None)
 
     import shutil
+
     unit_dir = UPLOAD_DIR / sid / data_key / unit_key
     if unit_dir.exists():
         shutil.rmtree(unit_dir, ignore_errors=True)
 
-    return _render_container(data_key, request)
+    return _render_container_s(data_key, s, request)
 
 
-@app.get("/data/containers/{data_key}/units/{unit_key}/plot", response_class=HTMLResponse)
+@app.get(
+    "/data/containers/{data_key}/units/{unit_key}/plot", response_class=HTMLResponse
+)
 async def unit_plot(data_key: str, unit_key: str, request: Request):
     _, s, _ = _session(request)
     container = s["data"].get(data_key)
@@ -422,9 +470,11 @@ async def unit_plot(data_key: str, unit_key: str, request: Request):
 
 # ── Model helpers ──────────────────────────────────────────────────────────────
 
+
 def _parse_prior_str(s: str):
     """Return (prior_obj, frozen). frozen=True if s=='frozen'."""
     from bayspec.util.prior import all_priors
+
     s = s.strip()
     if s == "frozen":
         return None, True
@@ -438,39 +488,69 @@ def _parse_prior_str(s: str):
     return all_priors[name](*args), False
 
 
-def _model_plot_div(model) -> str:
-    import numpy as np
-    import plotly.graph_objects as go
-    import plotly.offline as pyo
+_PLOT_STYLE_LABEL = {
+    "vFv": "E² N(E)  (keV² photons s⁻¹ cm⁻² keV⁻¹)",
+    "Fv": "E N(E)  (keV photons s⁻¹ cm⁻² keV⁻¹)",
+    "NE": "N(E)  (photons s⁻¹ cm⁻² keV⁻¹)",
+    "NoU": "func(E)",
+}
 
-    E = np.logspace(1, 3, 150)
-    try:
-        NE = model.func(E)
-        vFv = E ** 2 * NE
-    except Exception as exc:
-        return f"<p class='alert alert-danger'>Evaluation error: {exc}</p>"
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=E, y=vFv, mode="lines",
-        line=dict(color="#4F46E5", width=2),
-        name=str(getattr(model, "expr", "model")),
-    ))
-    fig.update_layout(
-        xaxis=dict(title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"),
-        yaxis=dict(title="E² N(E)  (keV photons s⁻¹ cm⁻²)", type="log",
-                   showgrid=True, gridcolor="#F1F5F9"),
-        template="simple_white",
-        margin=dict(l=65, r=20, t=20, b=50),
-        height=280,
-        font=dict(family="Inter, system-ui, sans-serif", size=12, color="#0F172A"),
-        paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
+def _apply_app_layout(
+    fig, *, style: str, height: int = 320, showlegend: bool = True
+) -> None:
+    """Re-skin a bayspec.Plot figure to match the rest of the app."""
+    fig.update_xaxes(showgrid=True, gridcolor="#F1F5F9")
+    fig.update_yaxes(
+        title_text=_PLOT_STYLE_LABEL.get(style, "func(E)"),
+        showgrid=True,
+        gridcolor="#F1F5F9",
     )
+    fig.update_layout(
+        template="simple_white",
+        margin=dict(l=70, r=20, t=20, b=50),
+        height=height,
+        width=None,
+        showlegend=showlegend,
+        legend=dict(x=0.98, y=0.98, xanchor="right", yanchor="top"),
+        font=dict(family="Inter, system-ui, sans-serif", size=12, color="#0F172A"),
+        paper_bgcolor="#FFFFFF",
+        plot_bgcolor="#FFFFFF",
+    )
+
+
+def _build_model_plot(
+    components: list,
+    style: str,
+    e_lo: float,
+    e_hi: float,
+    tarr_val: Optional[float],
+    *,
+    post: bool = False,
+    height: int = 320,
+) -> str:
+    """Render one or more components as a ``ModelPlot`` div."""
+    import numpy as np
+    import plotly.offline as pyo
+    from bayspec.util.plot import Plot
+
+    E = np.logspace(float(e_lo), float(e_hi), 300)
+
+    mp = Plot.model(style=style, post=post)
+    for comp in components:
+        T = (
+            (tarr_val * np.ones_like(E))
+            if (tarr_val is not None and getattr(comp, "type", None) == "add")
+            else None
+        )
+        mp.add_model(comp, E, T)
+
+    fig = mp.get_fig().fig
+    _apply_app_layout(fig, style=style, height=height, showlegend=True)
     return pyo.plot(fig, output_type="div", include_plotlyjs=False)
 
 
-def _render_model_card(mkey: str, request: Request):
-    _, s, _ = _session(request)
+def _render_model_card(mkey: str, s: dict, request: Request):
     return templates.TemplateResponse(
         request=request,
         name="partials/model_card.html",
@@ -478,8 +558,7 @@ def _render_model_card(mkey: str, request: Request):
     )
 
 
-def _render_model_list(request: Request):
-    _, s, _ = _session(request)
+def _render_model_list(s: dict, request: Request):
     return templates.TemplateResponse(
         request=request,
         name="partials/model_list.html",
@@ -491,16 +570,19 @@ def _get_library_models(library: str, s: dict) -> tuple[dict, str]:
     """Return ({model_name: model_class}, error_message)."""
     if library == "local":
         from bayspec.model.local import local_models
+
         return local_models, ""
     if library == "astro":
         try:
             from bayspec.model.astro import astro_models
+
             return astro_models, ""
         except Exception as exc:  # noqa: BLE001
             return {}, f"Astromodels unavailable ({exc.__class__.__name__})."
     if library == "xspec":
         try:
             from bayspec.model.xspec import xspec_models
+
             return xspec_models, ""
         except Exception as exc:  # noqa: BLE001
             return {}, f"XSPEC unavailable ({exc.__class__.__name__})."
@@ -509,46 +591,21 @@ def _get_library_models(library: str, s: dict) -> tuple[dict, str]:
     return {}, f"Unknown library: {library!r}"
 
 
-def _component_plot_div(comp, style: str = "vFv") -> str:
+def _component_plot_div(
+    comp,
+    style: str = "vFv",
+    e_lo: float = 0.0,
+    e_hi: float = 4.0,
+    tarr_val: Optional[float] = None,
+) -> str:
     """Spectrum of a single component on a log E grid, in the requested style."""
-    import numpy as np
-    import plotly.graph_objects as go
-    import plotly.offline as pyo
-
-    E = np.logspace(0, 4, 300)
-    NE = np.asarray(comp.func(E), dtype=float)
-    if style == "vFv":
-        y = E ** 2 * NE
-        ylabel = "E² N(E)  (keV² photons s⁻¹ cm⁻² keV⁻¹)"
-    elif style == "Fv":
-        y = E * NE
-        ylabel = "E N(E)  (keV photons s⁻¹ cm⁻² keV⁻¹)"
-    elif style == "NE":
-        y = NE
-        ylabel = "N(E)  (photons s⁻¹ cm⁻² keV⁻¹)"
-    else:  # NoU — dimensionless (mul / math components)
-        y = NE
-        ylabel = "func(E)"
-
-    fig = go.Figure(go.Scatter(
-        x=E, y=y, mode="lines",
-        line=dict(color="#4F46E5", width=2),
-        name=str(getattr(comp, "expr", "comp")),
-    ))
-    fig.update_layout(
-        xaxis=dict(title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"),
-        yaxis=dict(title=ylabel, type="log", showgrid=True, gridcolor="#F1F5F9"),
-        template="simple_white",
-        margin=dict(l=65, r=20, t=20, b=50),
-        height=340,
-        showlegend=False,
-        font=dict(family="Inter, system-ui, sans-serif", size=12, color="#0F172A"),
-        paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
+    return _build_model_plot(
+        [comp], style, e_lo, e_hi, tarr_val, post=False, height=320
     )
-    return pyo.plot(fig, output_type="div", include_plotlyjs=False)
 
 
 # ── Model API routes ───────────────────────────────────────────────────────────
+
 
 @app.post("/model/models", response_class=HTMLResponse)
 async def create_model(request: Request, model_key: str = Form(...)):
@@ -557,7 +614,7 @@ async def create_model(request: Request, model_key: str = Form(...)):
     if key not in s["model_component"]:
         s["model_component"][key] = {}
         s["model_state"][key] = {"expression": "", "error": None}
-    resp = _render_model_list(request)
+    resp = _render_model_list(s, request)
     if is_new:
         resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite="lax")
     return resp
@@ -569,10 +626,14 @@ async def delete_model(mkey: str, request: Request):
     s["model_component"].pop(mkey, None)
     s["model_state"].pop(mkey, None)
     s["model"].pop(mkey, None)
-    resp = _render_model_list(request)
+    resp = _render_model_list(s, request)
     if is_new:
         resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite="lax")
     return resp
+
+
+XSPEC_ABUND_CHOICES = ["angr", "aspl", "feld", "aneb", "grsa", "wilm", "lodd", "lpgp"]
+XSPEC_XSECT_CHOICES = ["bcmc", "obcm", "vern"]
 
 
 @app.post("/model/models/{mkey}/components", response_class=HTMLResponse)
@@ -582,6 +643,8 @@ async def add_component(
     library: str = Form("local"),
     comp_type: str = Form(...),
     comp_key: str = Form(""),
+    xspec_abund: str = Form(""),
+    xspec_xsect: str = Form(""),
 ):
     _, s, _ = _session(request)
     ckey = _safe_key(comp_key.strip()) if comp_key.strip() else comp_type
@@ -589,12 +652,30 @@ async def add_component(
     lib_dict, lib_err = _get_library_models(library, s)
     if lib_err:
         s["model_state"].setdefault(mkey, {})["error"] = lib_err
-        return _render_model_card(mkey, request)
+        return _render_model_card(mkey, s, request)
     if comp_type not in lib_dict:
         s["model_state"].setdefault(mkey, {})["error"] = (
             f"Unknown model {comp_type!r} in library {library!r}"
         )
-        return _render_model_card(mkey, request)
+        return _render_model_card(mkey, s, request)
+
+    # Apply XSPEC global state before instantiating the component.
+    if library == "xspec":
+        try:
+            from bayspec.model.xspec import abund as _abund
+            from bayspec.model.xspec import xsect as _xsect
+
+            if xspec_abund in XSPEC_ABUND_CHOICES:
+                _abund(xspec_abund)
+                s["model_state"].setdefault(mkey, {})["xspec_abund"] = xspec_abund
+            if xspec_xsect in XSPEC_XSECT_CHOICES:
+                _xsect(xspec_xsect)
+                s["model_state"].setdefault(mkey, {})["xspec_xsect"] = xspec_xsect
+        except Exception as exc:
+            s["model_state"].setdefault(mkey, {})["error"] = (
+                f"XSPEC config error: {exc}"
+            )
+            return _render_model_card(mkey, s, request)
 
     try:
         comp = lib_dict[comp_type]()
@@ -602,11 +683,11 @@ async def add_component(
         s["model_state"].setdefault(mkey, {})["error"] = (
             f"Failed to instantiate {comp_type}: {exc}"
         )
-        return _render_model_card(mkey, request)
+        return _render_model_card(mkey, s, request)
 
     s["model_component"].setdefault(mkey, {})[ckey] = comp
     s["model_state"].setdefault(mkey, {})["error"] = None
-    return _render_model_card(mkey, request)
+    return _render_model_card(mkey, s, request)
 
 
 @app.get("/model/libraries/{library}/options", response_class=HTMLResponse)
@@ -620,11 +701,29 @@ async def library_options(library: str, request: Request):
     )
 
 
+@app.get("/model/xspec_options", response_class=HTMLResponse)
+async def xspec_options(request: Request):
+    """Return abund + xsect dropdowns (visible only when library==xspec)."""
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/xspec_options.html",
+        context={
+            "abund_choices": XSPEC_ABUND_CHOICES,
+            "xsect_choices": XSPEC_XSECT_CHOICES,
+        },
+    )
+
+
+@app.get("/model/xspec_options/empty", response_class=HTMLResponse)
+async def xspec_options_empty():
+    return HTMLResponse("")
+
+
 @app.post("/model/models/{mkey}/bind", response_class=HTMLResponse)
 async def bind_data(mkey: str, request: Request, data_key: str = Form("")):
     _, s, _ = _session(request)
     s["model_state"].setdefault(mkey, {})["data_binding"] = data_key or None
-    return _render_model_card(mkey, request)
+    return _render_model_card(mkey, s, request)
 
 
 @app.get("/model/models/{mkey}/components/{ckey}/plot", response_class=HTMLResponse)
@@ -633,15 +732,55 @@ async def component_plot(
     ckey: str,
     request: Request,
     style: str = "vFv",
+    e_lo: float = 0.0,
+    e_hi: float = 4.0,
+    time: str = "",
 ):
     _, s, _ = _session(request)
     comp = s["model_component"].get(mkey, {}).get(ckey)
     if comp is None:
         return HTMLResponse("<p class='alert alert-warning'>Component not found.</p>")
     try:
-        return HTMLResponse(_component_plot_div(comp, style))
+        tarr_val = _parse_optional_float(time)
+        return HTMLResponse(_component_plot_div(comp, style, e_lo, e_hi, tarr_val))
     except Exception as exc:
         return HTMLResponse(f"<p class='alert alert-danger'>Plot error: {exc}</p>")
+
+
+@app.get("/model/models/{mkey}/components/spectra", response_class=HTMLResponse)
+async def model_components_spectra(
+    mkey: str,
+    request: Request,
+    style: str = "vFv",
+    e_lo: float = 0.0,
+    e_hi: float = 4.0,
+    comps: str = "",
+    time: str = "",
+):
+    """Multi-component combined spectra preview (pre-inference)."""
+    _, s, _ = _session(request)
+    comp_keys = [c.strip() for c in comps.split(",") if c.strip()]
+    components = s["model_component"].get(mkey, {})
+    selected = [components[ck] for ck in comp_keys if ck in components]
+    if not selected:
+        return HTMLResponse(
+            "<p class='alert alert-warning'>Select at least one component.</p>"
+        )
+    try:
+        tarr_val = _parse_optional_float(time)
+        return HTMLResponse(
+            _build_model_plot(
+                selected,
+                style,
+                e_lo,
+                e_hi,
+                tarr_val,
+                post=False,
+                height=380,
+            )
+        )
+    except Exception as exc:
+        return HTMLResponse(f"<p class='alert alert-danger'>Spectra error: {exc}</p>")
 
 
 @app.delete("/model/models/{mkey}/components/{ckey}", response_class=HTMLResponse)
@@ -649,7 +788,7 @@ async def delete_component(mkey: str, ckey: str, request: Request):
     _, s, _ = _session(request)
     s["model_component"].get(mkey, {}).pop(ckey, None)
     s["model"].pop(mkey, None)  # invalidate composed model
-    return _render_model_card(mkey, request)
+    return _render_model_card(mkey, s, request)
 
 
 @app.post("/model/models/{mkey}/components/{ckey}/update", response_class=HTMLResponse)
@@ -658,10 +797,12 @@ async def update_component(mkey: str, ckey: str, request: Request):
     _, s, _ = _session(request)
     comp = s["model_component"].get(mkey, {}).get(ckey)
     if comp is None:
-        return _render_model_card(mkey, request)
+        return _render_model_card(mkey, s, request)
 
     cfg_dict = comp.cfg_info.data_dict
-    for idx, param, orig_val in zip(cfg_dict["cfg#"], cfg_dict["Parameter"], cfg_dict["Value"]):
+    for idx, param, orig_val in zip(
+        cfg_dict["cfg#"], cfg_dict["Parameter"], cfg_dict["Value"]
+    ):
         field = f"cfg_{idx}"
         if field not in form:
             continue
@@ -678,7 +819,9 @@ async def update_component(mkey: str, ckey: str, request: Request):
             pass
 
     par_dict = comp.par_info.data_dict
-    for idx, param, orig_prior in zip(par_dict["par#"], par_dict["Parameter"], par_dict["Prior"]):
+    for idx, param, orig_prior in zip(
+        par_dict["par#"], par_dict["Parameter"], par_dict["Prior"]
+    ):
         val_field = f"par_val_{idx}"
         prior_field = f"par_prior_{idx}"
         if val_field in form:
@@ -697,7 +840,7 @@ async def update_component(mkey: str, ckey: str, request: Request):
                 except (ValueError, KeyError):
                     pass
 
-    return _render_model_card(mkey, request)
+    return _render_model_card(mkey, s, request)
 
 
 @app.post("/model/models/{mkey}/compose", response_class=HTMLResponse)
@@ -717,19 +860,65 @@ async def compose_model(
     except Exception as exc:
         error = str(exc)
         s["model_state"][mkey]["error"] = error
-    return _render_model_card(mkey, request)
+    return _render_model_card(mkey, s, request)
 
 
 @app.get("/model/models/{mkey}/plot", response_class=HTMLResponse)
-async def model_plot(mkey: str, request: Request):
+async def model_plot(
+    mkey: str,
+    request: Request,
+    style: str = "vFv",
+    comps: str = "",
+    e_lo: float = 0.0,
+    e_hi: float = 4.0,
+    time: str = "",
+):
     _, s, _ = _session(request)
-    model = s["model"].get(mkey)
-    if model is None:
-        return HTMLResponse("<p class='alert alert-warning'>Compose the model first.</p>")
-    return HTMLResponse(_model_plot_div(model))
+    if s["model"].get(mkey) is None:
+        return HTMLResponse(
+            "<p class='alert alert-warning'>Compose the model first.</p>"
+        )
+
+    all_comps = s["model_component"].get(mkey, {})
+    selected = [c.strip() for c in comps.split(",") if c.strip()]
+    if not selected:
+        return HTMLResponse(
+            "<p class='alert alert-warning'>Pick at least one component to plot.</p>"
+        )
+
+    add_styles = {"vFv", "Fv", "NE"}
+    nou_styles = {"NoU"}
+
+    def _style_ok(comp) -> bool:
+        t = getattr(comp, "type", None)
+        if style in add_styles:
+            return t == "add"
+        if style in nou_styles:
+            return t in ("mul", "math")
+        return True
+
+    chosen = [
+        all_comps[c] for c in selected if c in all_comps and _style_ok(all_comps[c])
+    ]
+    if not chosen:
+        return HTMLResponse(
+            f"<p class='alert alert-warning'>No components compatible with style '{style}'. "
+            "vFv / Fv / NE need additive components; NoU needs mul / math.</p>"
+        )
+
+    try:
+        tarr_val = _parse_optional_float(time)
+        return HTMLResponse(
+            _build_model_plot(
+                chosen, style, e_lo, e_hi, tarr_val, post=False, height=380
+            )
+        )
+    except Exception as exc:
+        return HTMLResponse(f"<p class='alert alert-danger'>Plot error: {exc}</p>")
 
 
 # ── Inference helpers ──────────────────────────────────────────────────────────
+
 
 def _derived_pairs(s: dict) -> list[dict]:
     """Scan bidirectional data↔model bindings to auto-derive inference pairs."""
@@ -753,13 +942,16 @@ def _derived_pairs(s: dict) -> list[dict]:
 
 def _posterior_html(post) -> str:
     """Return HTML fragment with parameter CI table + stat + IC tables."""
+    def _fmt(v, fmt=".4g"):
+        return format(v, fmt) if v is not None else "—"
+
     fp = post.free_par_info.data_dict
     par_rows = "".join(
         f"<tr><td class='param-name'>{par}</td>"
-        f"<td>{best:.4g}</td>"
+        f"<td>{_fmt(best)}</td>"
         f"<td><code>{ci}</code></td>"
-        f"<td>{mean:.4g}</td>"
-        f"<td>{med:.4g}</td></tr>"
+        f"<td>{_fmt(mean)}</td>"
+        f"<td>{_fmt(med)}</td></tr>"
         for par, best, ci, mean, med in zip(
             fp["Parameter"], fp["Best"], fp["1sigma CI"], fp["Mean"], fp["Median"]
         )
@@ -790,8 +982,7 @@ def _posterior_html(post) -> str:
 
     ic = post.IC_info.data_dict
     ic_rows = "".join(
-        f"<tr><td class='param-name'>{k}</td><td>{ic[k][0]:.4g}</td></tr>"
-        for k in ic
+        f"<tr><td class='param-name'>{k}</td><td>{_fmt(ic[k][0])}</td></tr>" for k in ic
     )
     ic_html = (
         "<div class='param-section-label' style='margin:.75rem 0 .4rem'>Information Criteria</div>"
@@ -803,8 +994,7 @@ def _posterior_html(post) -> str:
     return par_html + stat_html + ic_html
 
 
-def _render_infer_panel(request: Request):
-    _, s, _ = _session(request)
+def _render_infer_panel(s: dict, request: Request):
     return templates.TemplateResponse(
         request=request,
         name="partials/infer_panel.html",
@@ -816,49 +1006,23 @@ def _render_infer_panel_str(s: dict) -> str:
     return templates.env.get_template("partials/infer_panel.html").render(s=s)
 
 
-def _model_spectra_div(post, mkey: str, style: str, comp_keys: list[str], s: dict) -> str:
-    """Post-fit component spectra on a log E grid."""
-    import numpy as np
-    import plotly.graph_objects as go
-    import plotly.offline as pyo
-
+def _model_spectra_div(
+    post,
+    mkey: str,
+    style: str,
+    comp_keys: list[str],
+    s: dict,
+    e_lo: float = 0.0,
+    e_hi: float = 4.0,
+    tarr_val: Optional[float] = None,
+) -> str:
+    """Post-fit component spectra rendered via ``Plot.model(post=True)``."""
     post.at_par(post.par_best)
     components = s["model_component"].get(mkey, {})
-    E = np.logspace(0, 4, 300)
-
-    fig = go.Figure()
-    for ck in comp_keys:
-        comp = components.get(ck)
-        if comp is None:
-            continue
-        NE = np.asarray(comp.func(E), dtype=float)
-        if style == "vFv":
-            y = E ** 2 * NE
-        elif style == "Fv":
-            y = E * NE
-        elif style == "NE":
-            y = NE
-        else:
-            y = NE
-        fig.add_trace(go.Scatter(
-            x=E, y=y, mode="lines", name=ck,
-            line=dict(width=2),
-        ))
-
-    ylabels = {"vFv": "E² N(E)", "Fv": "E N(E)", "NE": "N(E)", "NoU": "func(E)"}
-    fig.update_layout(
-        xaxis=dict(title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"),
-        yaxis=dict(title=ylabels.get(style, "func(E)"), type="log",
-                   showgrid=True, gridcolor="#F1F5F9"),
-        template="simple_white",
-        margin=dict(l=70, r=20, t=20, b=50),
-        height=360,
-        showlegend=True,
-        legend=dict(x=0.98, y=0.98, xanchor="right", yanchor="top"),
-        font=dict(family="Inter, system-ui, sans-serif", size=12, color="#0F172A"),
-        paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
-    )
-    return pyo.plot(fig, output_type="div", include_plotlyjs=False)
+    comps = [components[ck] for ck in comp_keys if ck in components]
+    if not comps:
+        return "<p class='alert alert-warning'>No matching components.</p>"
+    return _build_model_plot(comps, style, e_lo, e_hi, tarr_val, post=True, height=380)
 
 
 def _corner_plot_div(post) -> str:
@@ -880,12 +1044,14 @@ def _corner_plot_div(post) -> str:
         {"label": name, "values": samples[:, i].tolist()}
         for i, name in enumerate(param_names)
     ]
-    fig = go.Figure(go.Splom(
-        dimensions=dims,
-        showupperhalf=False,
-        diagonal_visible=True,
-        marker=dict(size=2, color="rgba(79,70,229,0.3)"),
-    ))
+    fig = go.Figure(
+        go.Splom(
+            dimensions=dims,
+            showupperhalf=False,
+            diagonal_visible=True,
+            marker=dict(size=2, color="rgba(79,70,229,0.3)"),
+        )
+    )
     fig.update_layout(
         height=max(380, 160 * n),
         margin=dict(l=60, r=20, t=20, b=60),
@@ -915,26 +1081,38 @@ def _spectra_plot_div(post) -> str:
         for j, (x, y_d, y_e, y_m) in enumerate(
             zip(x_list, y_data_list, y_err_list, y_model_list)
         ):
-            suffix = f" [{i+1}]" if len(post.Pair) > 1 or len(x_list) > 1 else ""
+            suffix = f" [{i + 1}]" if len(post.Pair) > 1 or len(x_list) > 1 else ""
             if len(x_list) > 1:
-                suffix += f".{j+1}"
-            fig.add_trace(go.Scatter(
-                x=x, y=y_d,
-                error_y=dict(type="data", array=y_e, visible=True, thickness=1, width=0),
-                mode="lines",
-                name=f"data{suffix}",
-                line=dict(color=color, width=1.5),
-            ))
-            fig.add_trace(go.Scatter(
-                x=x, y=y_m,
-                mode="lines",
-                name=f"model{suffix}",
-                line=dict(color=color, width=2, dash="dot"),
-            ))
+                suffix += f".{j + 1}"
+            fig.add_trace(
+                go.Scatter(
+                    x=x,
+                    y=y_d,
+                    error_y=dict(
+                        type="data", array=y_e, visible=True, thickness=1, width=0
+                    ),
+                    mode="lines",
+                    name=f"data{suffix}",
+                    line=dict(color=color, width=1.5),
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=x,
+                    y=y_m,
+                    mode="lines",
+                    name=f"model{suffix}",
+                    line=dict(color=color, width=2, dash="dot"),
+                )
+            )
 
     fig.update_layout(
-        xaxis=dict(title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"),
-        yaxis=dict(title="Counts s⁻¹ keV⁻¹", type="log", showgrid=True, gridcolor="#F1F5F9"),
+        xaxis=dict(
+            title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"
+        ),
+        yaxis=dict(
+            title="Counts s⁻¹ keV⁻¹", type="log", showgrid=True, gridcolor="#F1F5F9"
+        ),
         template="simple_white",
         margin=dict(l=65, r=20, t=20, b=50),
         height=350,
@@ -948,6 +1126,7 @@ def _spectra_plot_div(post) -> str:
 
 
 # ── Inference API routes ───────────────────────────────────────────────────────
+
 
 @app.post("/infer/build", response_class=HTMLResponse)
 async def build_infer(request: Request):
@@ -969,7 +1148,7 @@ async def build_infer(request: Request):
             "No bidirectional data↔model bindings found. "
             "Go to the Data or Model page and bind containers to each other."
         )
-        return _render_infer_panel(request)
+        return _render_infer_panel(s, request)
 
     try:
         from bayspec.infer.infer import BayesInfer
@@ -984,22 +1163,22 @@ async def build_infer(request: Request):
 
         if not infer_pairs:
             ist["error"] = "No valid pairs could be constructed."
-            return _render_infer_panel(request)
+            return _render_infer_panel(s, request)
 
         # Check each Data container has at least one DataUnit
         for dc, _ in infer_pairs:
             if not dc.data:
                 ist["error"] = (
-                    f"Data container has no units. "
-                    f"Upload spectral files on the Data page first."
+                    "Data container has no units. "
+                    "Upload spectral files on the Data page first."
                 )
-                return _render_infer_panel(request)
+                return _render_infer_panel(s, request)
 
         s["infer"] = BayesInfer(pairs=infer_pairs)
     except Exception as exc:
         ist["error"] = str(exc)
 
-    return _render_infer_panel(request)
+    return _render_infer_panel(s, request)
 
 
 @app.post("/infer/link", response_class=HTMLResponse)
@@ -1009,7 +1188,7 @@ async def link_params(request: Request, nlink: int = Form(0)):
     infer = s.get("infer")
     if infer is None:
         ist["error"] = "Build inference pairs first."
-        return _render_infer_panel(request)
+        return _render_infer_panel(s, request)
 
     for pid in list(infer.par.keys()):
         infer.unlink(pid)
@@ -1026,7 +1205,7 @@ async def link_params(request: Request, nlink: int = Form(0)):
 
     ist["nlink"] = nlink
     ist["error"] = None
-    return _render_infer_panel(request)
+    return _render_infer_panel(s, request)
 
 
 @app.post("/infer/manual", response_class=HTMLResponse)
@@ -1036,7 +1215,7 @@ async def manual_fit(request: Request):
     infer = s.get("infer")
     if infer is None:
         ist["error"] = "Build inference pairs first."
-        return _render_infer_panel(request)
+        return _render_infer_panel(s, request)
 
     form = await request.form()
     now_par = []
@@ -1055,7 +1234,9 @@ async def manual_fit(request: Request):
     stat_rows = "".join(
         f"<tr><td class='param-name'>{d}</td><td>{m}</td>"
         f"<td>{st}</td><td>{v}</td><td>{b}</td></tr>"
-        for d, m, st, v, b in zip(sd["Data"], sd["Model"], sd["Statistic"], sd["Value"], sd["Bins"])
+        for d, m, st, v, b in zip(
+            sd["Data"], sd["Model"], sd["Statistic"], sd["Value"], sd["Bins"]
+        )
     )
     return HTMLResponse(
         "<table class='param-table' style='margin-top:.5rem'>"
@@ -1073,9 +1254,13 @@ async def manual_fit_plot(request: Request):
         return HTMLResponse("<p class='alert alert-warning'>No inference built.</p>")
     try:
         from bayspec.util.plot import Plot
+
         fig = Plot.infer(infer, style="CE")
         import plotly.offline as pyo
-        return HTMLResponse(pyo.plot(fig.fig, output_type="div", include_plotlyjs=False))
+
+        return HTMLResponse(
+            pyo.plot(fig.fig, output_type="div", include_plotlyjs=False)
+        )
     except Exception as exc:
         return HTMLResponse(f"<p class='alert alert-danger'>Plot error: {exc}</p>")
 
@@ -1092,18 +1277,25 @@ async def run_infer(
 ):
     _, s, _ = _session(request)
     ist = s["infer_state"]
-    ist.update({
-        "sampler": sampler, "nstep": nstep, "discard": discard,
-        "nlive": nlive, "savepath": savepath, "result": None, "error": None,
-        "resume": resume == "Yes",
-    })
+    ist.update(
+        {
+            "sampler": sampler,
+            "nstep": nstep,
+            "discard": discard,
+            "nlive": nlive,
+            "savepath": savepath,
+            "result": None,
+            "error": None,
+            "resume": resume == "Yes",
+        }
+    )
 
     do_resume = ist.get("resume", False)
 
     pairs = ist.get("pairs", [])
     if not pairs:
         ist["error"] = "No pairs — click Build inference first."
-        return _render_infer_panel(request)
+        return _render_infer_panel(s, request)
 
     # Validate all pairs and build BayesInfer before starting the thread
     try:
@@ -1125,11 +1317,16 @@ async def run_infer(
         Path(savepath).mkdir(parents=True, exist_ok=True)
     except Exception as exc:
         ist["error"] = str(exc)
-        return _render_infer_panel(request)
+        return _render_infer_panel(s, request)
 
     # Create task and launch sampler in background thread
     task_id = str(uuid.uuid4())
-    _tasks[task_id] = {"status": "running", "messages": [], "result_html": None, "error": None}
+    _tasks[task_id] = {
+        "status": "running",
+        "messages": [],
+        "result_html": None,
+        "error": None,
+    }
 
     def _worker():
         task = _tasks[task_id]
@@ -1139,11 +1336,22 @@ async def run_infer(
             if is_bayesian:
                 bi = s["infer"]
                 if sampler == "emcee":
-                    task["messages"].append(f"emcee: nstep={nstep}, discard={discard}")
-                    post = bi.emcee(nstep=nstep, discard=discard, savepath=savepath)
+                    task["messages"].append(
+                        f"emcee: nstep={nstep}, discard={discard}, resume={do_resume}"
+                    )
+                    post = bi.emcee(
+                        nstep=nstep,
+                        discard=discard,
+                        resume=do_resume,
+                        savepath=savepath,
+                    )
                 else:
-                    task["messages"].append(f"multinest: nlive={nlive}")
-                    post = bi.multinest(nlive=nlive, resume=do_resume, savepath=savepath)
+                    task["messages"].append(
+                        f"multinest: nlive={nlive}, resume={do_resume}"
+                    )
+                    post = bi.multinest(
+                        nlive=nlive, resume=do_resume, savepath=savepath
+                    )
             else:
                 fit = s["infer"]
                 task["messages"].append(f"Optimizer: {sampler}")
@@ -1175,19 +1383,19 @@ async def run_infer(
         f'<div class="run-status-row">'
         f'<span class="spinner"></span>'
         f'<span id="run-status-text">Connecting\u2026</span>'
-        f'</div>'
-        f'</div>'
-        f'</div>'
-        f'<script>'
-        f'(function(){{'
+        f"</div>"
+        f"</div>"
+        f"</div>"
+        f"<script>"
+        f"(function(){{"
         f'const log=document.getElementById("run-log");'
         f'const st=document.getElementById("run-status-text");'
         f'const es=new EventSource("/infer/stream/{task_id}");'
         f'es.onmessage=function(e){{log.insertAdjacentHTML("beforeend",e.data);log.scrollTop=log.scrollHeight;st.textContent="Running\u2026";}};'
         f'es.addEventListener("done",function(e){{es.close();document.getElementById("infer-panel").outerHTML=e.data;}});'
         f'es.onerror=function(){{es.close();st.textContent="Stream error \u2014 refresh to see results.";}};'
-        f'}})();'
-        f'</script>'
+        f"}})();"
+        f"</script>"
     )
     return HTMLResponse(running_html)
 
@@ -1209,10 +1417,12 @@ async def infer_stream(task_id: str, request: Request):
 
             messages = task["messages"]
             while sent < len(messages):
-                safe = (messages[sent]
-                        .replace("&", "&amp;")
-                        .replace("<", "&lt;")
-                        .replace(">", "&gt;"))
+                safe = (
+                    messages[sent]
+                    .replace("&", "&amp;")
+                    .replace("<", "&lt;")
+                    .replace(">", "&gt;")
+                )
                 sent += 1
                 yield f"data: <div class='log-line'>{safe}</div>\n\n"
 
@@ -1231,16 +1441,21 @@ async def infer_stream(task_id: str, request: Request):
         headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
+
 @app.get("/infer/plots/corner", response_class=HTMLResponse)
 async def infer_corner_plot(request: Request):
     _, s, _ = _session(request)
     post = s["infer_state"].get("posterior")
     if post is None:
-        return HTMLResponse("<p class='alert alert-warning'>No posterior available.</p>")
+        return HTMLResponse(
+            "<p class='alert alert-warning'>No posterior available.</p>"
+        )
     try:
         return HTMLResponse(_corner_plot_div(post))
     except Exception as exc:
-        return HTMLResponse(f"<p class='alert alert-danger'>Corner plot error: {exc}</p>")
+        return HTMLResponse(
+            f"<p class='alert alert-danger'>Corner plot error: {exc}</p>"
+        )
 
 
 @app.get("/infer/plots/spectra", response_class=HTMLResponse)
@@ -1248,11 +1463,15 @@ async def infer_spectra_plot(request: Request):
     _, s, _ = _session(request)
     post = s["infer_state"].get("posterior")
     if post is None:
-        return HTMLResponse("<p class='alert alert-warning'>No posterior available.</p>")
+        return HTMLResponse(
+            "<p class='alert alert-warning'>No posterior available.</p>"
+        )
     try:
         return HTMLResponse(_spectra_plot_div(post))
     except Exception as exc:
-        return HTMLResponse(f"<p class='alert alert-danger'>Spectra plot error: {exc}</p>")
+        return HTMLResponse(
+            f"<p class='alert alert-danger'>Spectra plot error: {exc}</p>"
+        )
 
 
 @app.get("/infer/plots/model", response_class=HTMLResponse)
@@ -1261,21 +1480,55 @@ async def infer_model_plot(
     mkey: str = "",
     style: str = "vFv",
     comps: str = "",
+    e_lo: float = 0.0,
+    e_hi: float = 4.0,
+    time: str = "",
 ):
     _, s, _ = _session(request)
     post = s["infer_state"].get("posterior")
     if post is None:
-        return HTMLResponse("<p class='alert alert-warning'>No posterior available.</p>")
-    comp_keys = [c.strip() for c in comps.split(",") if c.strip()]
-    if not comp_keys:
-        return HTMLResponse("<p class='alert alert-warning'>Select at least one component.</p>")
+        return HTMLResponse(
+            "<p class='alert alert-warning'>No posterior available.</p>"
+        )
+
+    all_comps = s["model_component"].get(mkey, {})
+    selected = [c.strip() for c in comps.split(",") if c.strip()]
+    if not selected:
+        return HTMLResponse(
+            "<p class='alert alert-warning'>Select at least one component.</p>"
+        )
+
+    add_styles = {"vFv", "Fv", "NE"}
+    nou_styles = {"NoU"}
+
+    def _style_ok(comp) -> bool:
+        t = getattr(comp, "type", None)
+        if style in add_styles:
+            return t == "add"
+        if style in nou_styles:
+            return t in ("mul", "math")
+        return True
+
+    keep = [c for c in selected if c in all_comps and _style_ok(all_comps[c])]
+    if not keep:
+        return HTMLResponse(
+            f"<p class='alert alert-warning'>No components compatible with style '{style}'. "
+            "vFv / Fv / NE need additive components; NoU needs mul / math.</p>"
+        )
+
     try:
-        return HTMLResponse(_model_spectra_div(post, mkey, style, comp_keys, s))
+        tarr_val = _parse_optional_float(time)
+        return HTMLResponse(
+            _model_spectra_div(post, mkey, style, keep, s, e_lo, e_hi, tarr_val)
+        )
     except Exception as exc:
-        return HTMLResponse(f"<p class='alert alert-danger'>Model spectra error: {exc}</p>")
+        return HTMLResponse(
+            f"<p class='alert alert-danger'>Model spectra error: {exc}</p>"
+        )
 
 
 # ── Editor helpers ─────────────────────────────────────────────────────────────
+
 
 def _render_editor_panel(request: Request):
     _, s, _ = _session(request)
@@ -1287,6 +1540,7 @@ def _render_editor_panel(request: Request):
 
 
 # ── Editor API routes ──────────────────────────────────────────────────────────
+
 
 @app.post("/editor/register", response_class=HTMLResponse)
 async def register_model(request: Request, code: str = Form(...)):
@@ -1313,7 +1567,9 @@ async def register_model(request: Request, code: str = Form(...)):
         and name not in ("Model", "Additive", "Multiplicative", "Mathematic")
     }
     if not new_classes:
-        est.update({"status": "No Model subclass found in the code.", "status_type": "warning"})
+        est.update(
+            {"status": "No Model subclass found in the code.", "status_type": "warning"}
+        )
         return _render_editor_panel(request)
 
     _local_models.update(new_classes)

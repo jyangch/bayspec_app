@@ -4,7 +4,7 @@
 
 {% block content %}
 <h1>Data</h1>
-<p class="page-subtitle">Group spectral units into <code>Data</code> containers, then bind each container to a model.</p>
+<p class="page-subtitle">Group data units into <code>Data</code> containers, then bind each <code>Data</code> to a <code>Model</code>.</p>
 
 <div class="card create-bar" style="margin-bottom:1rem">
   <form class="inline-form"
@@ -12,9 +12,9 @@
         hx-target="#data-container-list"
         hx-swap="outerHTML"
         onsubmit="setTimeout(()=>this.reset(), 0)">
-    <input type="text" name="data_key" placeholder="container name (auto if empty, e.g. Data1)" />
-    <button type="submit" class="btn btn-primary">+ New Data container</button>
-    <span class="caption">Each container holds one or more spectral units.</span>
+    <input type="text" name="data_key" placeholder="Data name (auto if empty, e.g. Data1)" />
+    <button type="submit" class="btn btn-primary">+ New Data</button>
+    <span class="caption">Each <code>Data</code> container holds one or more data units.</span>
   </form>
 </div>
 

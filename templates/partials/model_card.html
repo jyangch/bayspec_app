@@ -24,7 +24,7 @@
             hx-swap="outerHTML"
             hx-trigger="change"
             style="display:flex;align-items:center;gap:.4rem">
-        <label class="caption" style="margin:0">bind data:</label>
+        <label class="caption" style="margin:0">Bind <code>Data</code>:</label>
         <select name="data_key" class="param-select">
           <option value="">— none —</option>
           {% for dk in s.data.keys() %}
@@ -44,10 +44,10 @@
   </div>
 
   {% if not s.data %}
-    <p class="field-hint" style="margin-top:.4rem">No Data containers yet — create one on the Data page to enable binding.</p>
+    <p class="field-hint" style="margin-top:.4rem">No <code>Data</code> containers yet — create one on the Data page to enable binding.</p>
   {% endif %}
 
-  <!-- ── Add component form: library + model + alias ── -->
+  <!-- ── Add component form: library + model + alias (+ XSPEC abund/xsect) ── -->
   <form class="add-comp-form"
         hx-post="/model/models/{{ mkey }}/components"
         hx-target="#model-card-{{ mkey }}"
@@ -55,11 +55,7 @@
         onsubmit="setTimeout(()=>this.querySelector('[name=comp_key]').value='', 0)">
     <label class="caption" style="margin:0">library</label>
     <select name="library" class="comp-type-select"
-            hx-get="/model/libraries/local/options"
-            hx-target="#comp-options-{{ mkey }}"
-            hx-trigger="change"
-            hx-vals='js:{}'
-            onchange="this.setAttribute('hx-get', '/model/libraries/'+this.value+'/options'); htmx.process(this)">
+            onchange="onLibraryChange_{{ mkey | replace('-','_') }}(this)">
       <option value="local" selected>local</option>
       <option value="astro">astro</option>
       <option value="xspec">xspec</option>
@@ -74,10 +70,26 @@
       {% endfor %}
     </select>
 
+    <span id="xspec-extra-{{ mkey }}"></span>
+
     <input type="text" name="comp_key" placeholder="alias (optional)"
            style="max-width:130px" />
     <button type="submit" class="btn btn-sm">+ Add component</button>
   </form>
+  <script>
+    function onLibraryChange_{{ mkey | replace('-','_') }}(sel) {
+      const lib = sel.value;
+      htmx.ajax('GET', '/model/libraries/' + lib + '/options',
+                {target: '#comp-options-{{ mkey }}', swap: 'innerHTML'});
+      const xspecTarget = '#xspec-extra-{{ mkey }}';
+      if (lib === 'xspec') {
+        htmx.ajax('GET', '/model/xspec_options',
+                  {target: xspecTarget, swap: 'innerHTML'});
+      } else {
+        document.querySelector(xspecTarget).innerHTML = '';
+      }
+    }
+  </script>
 
   <!-- ── Component blocks ── -->
   {% for ckey, comp in components.items() %}
@@ -158,25 +170,44 @@
       </form>
 
       <!-- Per-component spectra preview -->
-      <div style="margin-top:.6rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
-        <label class="caption" style="margin:0">preview style:</label>
+      <div class="plot-controls-row" style="margin-top:.6rem">
+        <label class="caption">style</label>
         <select id="cstyle-{{ mkey }}-{{ ckey }}" class="param-select" style="width:auto">
           {% if ctype == 'add' %}
             <option value="vFv" selected>vFv</option>
             <option value="Fv">Fv</option>
             <option value="NE">NE</option>
           {% else %}
-            <option value="NoU" selected>NoU (dimensionless)</option>
+            <option value="NoU" selected>NoU</option>
           {% endif %}
         </select>
+
+        <label class="caption">E (log₁₀ keV)</label>
+        <input id="celo-{{ mkey }}-{{ ckey }}" type="number" step="0.5" value="0"
+               class="param-input" style="width:64px" />
+        <span class="caption">→</span>
+        <input id="cehi-{{ mkey }}-{{ ckey }}" type="number" step="0.5" value="4"
+               class="param-input" style="width:64px" />
+
+        {% if ctype == 'add' %}
+        <label class="caption">time</label>
+        <input id="ctime-{{ mkey }}-{{ ckey }}" type="number" step="any"
+               placeholder="optional"
+               class="param-input" style="width:96px" />
+        {% endif %}
+
         <button class="btn btn-sm"
                 hx-get="/model/models/{{ mkey }}/components/{{ ckey }}/plot"
-                hx-include="#cstyle-{{ mkey }}-{{ ckey }}"
-                hx-vals='js:{style: document.getElementById("cstyle-{{ mkey }}-{{ ckey }}").value}'
+                hx-vals='js:{
+                  style: document.getElementById("cstyle-{{ mkey }}-{{ ckey }}").value,
+                  e_lo: document.getElementById("celo-{{ mkey }}-{{ ckey }}").value,
+                  e_hi: document.getElementById("cehi-{{ mkey }}-{{ ckey }}").value,
+                  time: (document.getElementById("ctime-{{ mkey }}-{{ ckey }}")||{value:""}).value
+                }'
                 hx-target="#comp-plot-{{ mkey }}-{{ ckey }}"
                 hx-swap="innerHTML"
                 hx-indicator="#csp-{{ mkey }}-{{ ckey }}">
-          📈 Show component spectrum
+          📈 Show model spectrum
           <span id="csp-{{ mkey }}-{{ ckey }}" class="htmx-indicator"><span class="spinner"></span></span>
         </button>
       </div>
@@ -198,18 +229,51 @@
              class="compose-expr-input" />
       <button type="submit" class="btn btn-sm btn-primary">⚡ Compose</button>
     </form>
+  </div>
 
-    {% if composed %}
+  {% if composed and components %}
+  <div class="model-overlay-row">
+    <label class="caption">style</label>
+    <select id="mstyle-{{ mkey }}" class="param-select" style="width:auto">
+      <option value="vFv" selected>vFv</option>
+      <option value="Fv">Fv</option>
+      <option value="NE">NE</option>
+      <option value="NoU">NoU</option>
+    </select>
+
+    <label class="caption">components</label>
+    <select id="mcomps-{{ mkey }}" class="param-select model-overlay-multi" multiple>
+      {% for ck, cobj in components.items() %}
+        <option value="{{ ck }}" selected>{{ ck }} [{{ cobj.type }}]</option>
+      {% endfor %}
+    </select>
+
+    <label class="caption">E (log₁₀)</label>
+    <input id="melo-{{ mkey }}" type="number" step="0.5" value="0" class="param-input" style="width:60px" />
+    <span class="caption">→</span>
+    <input id="mehi-{{ mkey }}" type="number" step="0.5" value="4" class="param-input" style="width:60px" />
+
+    <label class="caption">time</label>
+    <input id="mtime-{{ mkey }}" type="number" step="any" placeholder="optional"
+           class="param-input" style="width:90px" />
+
     <button class="btn btn-sm"
             hx-get="/model/models/{{ mkey }}/plot"
+            hx-vals='js:{
+              style: document.getElementById("mstyle-{{ mkey }}").value,
+              comps: [...document.getElementById("mcomps-{{ mkey }}").selectedOptions].map(o=>o.value).join(","),
+              e_lo: document.getElementById("melo-{{ mkey }}").value,
+              e_hi: document.getElementById("mehi-{{ mkey }}").value,
+              time: document.getElementById("mtime-{{ mkey }}").value
+            }'
             hx-target="#model-plot-{{ mkey }}"
             hx-swap="innerHTML"
             hx-indicator="#plot-spinner-{{ mkey }}">
-      📊 Composed preview
+      📈 Show model spectrum
       <span id="plot-spinner-{{ mkey }}" class="htmx-indicator"><span class="spinner"></span></span>
     </button>
-    {% endif %}
   </div>
+  {% endif %}
 
   <div id="model-plot-{{ mkey }}" class="unit-plot"></div>
 

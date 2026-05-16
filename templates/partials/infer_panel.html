@@ -1,14 +1,36 @@
 {% set ist = s.infer_state %}
 {% set infer = s.get('infer') %}
+{% set step_pairs = (ist.get('pairs') | length) > 0 %}
+{% set step_built = infer is not none %}
+{% set step_run = ist.get('result') is not none %}
 
 <div id="infer-panel">
+
+<div class="infer-stepper">
+  <div class="infer-step {% if step_pairs %}done{% elif not step_built %}active{% endif %}">
+    <span class="step-tag">Step 1</span>
+    <span class="step-title">Pair Data ↔ Model</span>
+  </div>
+  <div class="infer-step {% if step_built %}done{% elif step_pairs %}active{% endif %}">
+    <span class="step-tag">Step 2</span>
+    <span class="step-title">Check configurations &amp; parameters</span>
+  </div>
+  <div class="infer-step {% if step_run %}done{% elif step_built %}active{% endif %}">
+    <span class="step-tag">Step 3</span>
+    <span class="step-title">Manual fit &amp; Bayesian sampling</span>
+  </div>
+  <div class="infer-step {% if step_run %}active{% endif %}">
+    <span class="step-tag">Step 4</span>
+    <span class="step-title">Inspect posterior</span>
+  </div>
+</div>
 
 {% if not ist.get("pairs") and not infer %}
   <div class="card" style="text-align:center;padding:2rem">
     <div class="empty-icon" style="font-size:2rem;margin-bottom:.5rem">📝</div>
     <p style="color:var(--text-muted);margin-bottom:1rem">
       Inference pairs are auto-derived from Data ↔ Model bindings.<br/>
-      <a href="/data">Bind a data container to a model</a> on the Data or Model page first.
+      <a href="/data">Bind a <code>Data</code> container to a <code>Model</code></a> on the Data or Model page first.
     </p>
     <form hx-post="/infer/build"
           hx-target="#infer-panel"
@@ -74,7 +96,7 @@
     <form hx-post="/infer/link"
           hx-target="#infer-panel"
           hx-swap="outerHTML">
-      <h3 style="margin-top:0;margin-bottom:.5rem">Link parameters</h3>
+      <h3 style="margin-top:0;margin-bottom:.5rem">Parameters</h3>
       <div class="form-group">
         <label>Number of link groups</label>
         <input type="number" name="nlink" value="{{ ist.get('nlink', 0) }}"
@@ -233,32 +255,52 @@
       <div id="plot-corner"></div>
       <div id="plot-spectra"></div>
 
-      <!-- Model spectra (per pair) -->
+      <!-- Model spectra (per pair, post-fit) -->
       {% for pair in ist.get("pairs", []) %}
         {% set comps = s.model_component.get(pair.model, {}) %}
         {% if comps %}
-          <div style="margin-top:1rem;border-top:1px solid var(--border-soft);padding-top:.75rem">
-            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
-              <label class="caption" style="margin:0">Style:</label>
+          <div class="post-model-section">
+            <div class="post-model-header">
+              <span class="unit-badge">{{ pair.model }}</span>
+              <span class="caption">post-fit component spectra</span>
+            </div>
+            <div class="plot-controls-row">
+              <label class="caption">style</label>
               <select id="mps-{{ loop.index0 }}" class="param-select" style="width:auto">
                 <option value="vFv" selected>vFv</option>
                 <option value="Fv">Fv</option>
                 <option value="NE">NE</option>
                 <option value="NoU">NoU</option>
               </select>
-              <label class="caption" style="margin:0">Comps:</label>
-              <select id="mpc-{{ loop.index0 }}" class="param-select" style="width:auto" multiple>
-                {% for ck in comps.keys() %}
-                  <option value="{{ ck }}" selected>{{ ck }}</option>
+              <label class="caption">components</label>
+              <select id="mpc-{{ loop.index0 }}" class="param-select model-overlay-multi" multiple>
+                {% for ck, cobj in comps.items() %}
+                  <option value="{{ ck }}" selected>{{ ck }} [{{ cobj.type }}]</option>
                 {% endfor %}
               </select>
-              <button class="btn btn-sm"
+              <label class="caption">E (log₁₀)</label>
+              <input id="mpelo-{{ loop.index0 }}" type="number" step="0.5" value="0"
+                     class="param-input" style="width:60px" />
+              <span class="caption">→</span>
+              <input id="mpehi-{{ loop.index0 }}" type="number" step="0.5" value="4"
+                     class="param-input" style="width:60px" />
+              <label class="caption">time</label>
+              <input id="mptime-{{ loop.index0 }}" type="number" step="any"
+                     placeholder="optional" class="param-input" style="width:90px" />
+              <button class="btn btn-sm btn-primary"
                       hx-get="/infer/plots/model"
-                      hx-vals='js:{style:document.getElementById("mps-{{ loop.index0 }}").value,comps:[...document.getElementById("mpc-{{ loop.index0 }}").selectedOptions].map(function(o){return o.value}).join(","),mkey:"{{ pair.model }}"}'
+                      hx-vals='js:{
+                        mkey:"{{ pair.model }}",
+                        style:document.getElementById("mps-{{ loop.index0 }}").value,
+                        comps:[...document.getElementById("mpc-{{ loop.index0 }}").selectedOptions].map(o=>o.value).join(","),
+                        e_lo:document.getElementById("mpelo-{{ loop.index0 }}").value,
+                        e_hi:document.getElementById("mpehi-{{ loop.index0 }}").value,
+                        time:document.getElementById("mptime-{{ loop.index0 }}").value
+                      }'
                       hx-target="#mplot-{{ loop.index0 }}"
                       hx-swap="innerHTML"
                       hx-indicator="#mpsp-{{ loop.index0 }}">
-                🌊 Show
+                🌊 Render
                 <span id="mpsp-{{ loop.index0 }}" class="htmx-indicator"><span class="spinner"></span></span>
               </button>
             </div>

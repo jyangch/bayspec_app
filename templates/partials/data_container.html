@@ -5,7 +5,7 @@
 <div class="card data-container" id="data-container-{{ data_key }}" style="margin-bottom:1rem">
 
   <!-- Header: name + bind + delete -->
-  <div class="data-container-header" style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
+  <div class="data-container-header" style="display:flex;align-items:center;gap:.6rem;">
     <span class="unit-badge" style="font-size:.95rem">{{ data_key }}</span>
     <span class="caption">{{ d.data|length }} unit{{ '' if d.data|length == 1 else 's' }}</span>
 
@@ -14,7 +14,7 @@
           hx-target="#data-container-{{ data_key }}"
           hx-swap="outerHTML"
           hx-trigger="change">
-      <label class="caption" style="margin:0">bind model:</label>
+      <label class="caption" style="margin:0">Bind <code>Model</code>:</label>
       <select name="model_key" class="param-select">
         <option value="">— none —</option>
         {% for mk in s.model.keys() %}
@@ -33,7 +33,7 @@
   </div>
 
   {% if not s.model %}
-    <p class="field-hint" style="margin-top:.4rem">No models defined yet — create one on the Model page to enable binding.</p>
+    <p class="field-hint" style="margin-top:.4rem">No <code>Model</code> defined yet — create one on the Model page to enable binding.</p>
   {% endif %}
 
   <!-- Existing units -->
@@ -76,7 +76,7 @@
                     hx-delete="/data/containers/{{ data_key }}/units/{{ unit_key }}"
                     hx-target="#data-container-{{ data_key }}"
                     hx-swap="outerHTML"
-                    hx-confirm="Remove unit {{ unit_key }}?">
+                    hx-confirm="Remove data unit {{ unit_key }}?">
               ✕ Remove unit
             </button>
           </div>
@@ -130,37 +130,37 @@
         <div class="form-group">
           <label>Spectra batch upload <span class="caption">(auto-detect by filename)</span></label>
           <input type="file" name="spec_files" multiple />
-          <p class="field-hint">Filenames containing src/pha → src · bkg/bak → bkg · rsp/resp → rsp · rmf · arf.</p>
+          <p class="field-hint">Filenames containing src/pha → src, bkg/bak → bkg, rsp/resp → rsp, rmf → rmf, arf → arf.</p>
         </div>
 
         <details class="form-details">
           <summary>Or upload files individually</summary>
           <div class="form-details-body">
-            <div class="form-group"><label>Source spectrum (src)</label><input type="file" name="src" /></div>
-            <div class="form-group"><label>Background (bkg)</label><input type="file" name="bkg" /></div>
-            <div class="form-group"><label>Response (rsp)</label><input type="file" name="rsp" /></div>
+            <div class="form-group"><label>Source spectrum</label><input type="file" name="src" /></div>
+            <div class="form-group"><label>Background spectrum</label><input type="file" name="bkg" /></div>
+            <div class="form-group"><label>Response</label><input type="file" name="rsp" /></div>
             <div class="form-group"><label>RMF</label><input type="file" name="rmf" /></div>
             <div class="form-group"><label>ARF</label><input type="file" name="arf" /></div>
           </div>
         </details>
 
         <div class="form-group">
-          <label>Fit statistic (stat)</label>
+          <label>Fit statistic</label>
           <select name="stat">
-            {% for opt in ["pgstat", "pstat", "cstat", "gstat", "chi2", "ppstat", "Xppstat", "Xcstat", "Xpgstat", "ULppstat", "ULpgstat"] %}
+            {% for opt in ["pgstat", "cstat", "chi2", "ppstat", "pstat", "gstat"] %}
               <option value="{{ opt }}" {% if opt == 'pgstat' %}selected{% endif %}>{{ opt }}</option>
             {% endfor %}
           </select>
         </div>
 
         <div class="form-group">
-          <label>Notice windows (notc)</label>
-          <input type="text" name="notc_str" placeholder="8-30;40-1000" />
+          <label>Notice energy range</label>
+          <input type="text" name="notc_str" placeholder="8-900" />
           <p class="field-hint">Format: <code>lo-hi</code> separated by <code>;</code></p>
         </div>
 
         <details class="form-details">
-          <summary>Grouping (grpg)</summary>
+          <summary>Grouping</summary>
           <div class="form-details-body">
             <div class="form-row-3">
               <div class="form-group"><label>min_evt</label><input type="number" name="grpg_min_evt" step="1" /></div>
@@ -171,7 +171,7 @@
         </details>
 
         <details class="form-details">
-          <summary>Rebinning (rebn)</summary>
+          <summary>Rebinning</summary>
           <div class="form-details-body">
             <div class="form-row-3">
               <div class="form-group"><label>min_evt</label><input type="number" name="rebn_min_evt" step="1" /></div>

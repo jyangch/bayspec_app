@@ -1,0 +1,76 @@
+- generic [active] [ref=e1]:
+  - complementary [ref=e2]:
+    - img "BaySpec" [ref=e4]:
+      - generic [ref=e10]: BaySpec
+    - paragraph [ref=e11]: Bayesian spectral fitting workbench for high-energy astrophysics.
+    - generic [ref=e12]:
+      - generic [ref=e13]: Workflow
+      - list [ref=e14]:
+        - listitem [ref=e15]:
+          - generic [ref=e16]: "1"
+          - text: Upload & bin data
+        - listitem [ref=e17]:
+          - generic [ref=e18]: "2"
+          - text: Compose & bind model
+        - listitem [ref=e19]:
+          - generic [ref=e20]: "3"
+          - text: Run inference
+        - listitem [ref=e21]:
+          - generic [ref=e22]: "4"
+          - text: Custom models
+          - generic [ref=e23]: (optional)
+    - separator [ref=e24]
+    - navigation [ref=e25]:
+      - link "🏠 Home" [ref=e26] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e27]: 🏠
+        - text: Home
+      - link "🔭 Data" [ref=e28] [cursor=pointer]:
+        - /url: /data
+        - generic [ref=e29]: 🔭
+        - text: Data
+      - link "🌈 Model" [ref=e30] [cursor=pointer]:
+        - /url: /model
+        - generic [ref=e31]: 🌈
+        - text: Model
+      - link "📝 Inference" [ref=e32] [cursor=pointer]:
+        - /url: /infer
+        - generic [ref=e33]: 📝
+        - text: Inference
+      - link "✏️ Editor" [ref=e34] [cursor=pointer]:
+        - /url: /editor
+        - generic [ref=e35]: ✏️
+        - text: Editor
+  - main [ref=e37]:
+    - heading "Model" [level=1] [ref=e38]
+    - paragraph [ref=e39]: Build spectral models from library components.
+    - generic [ref=e41]:
+      - textbox "Model name, e.g. model1" [ref=e42]
+      - button "+ New model" [ref=e43] [cursor=pointer]
+    - generic [ref=e45]:
+      - generic [ref=e46]:
+        - generic [ref=e48]: m
+        - generic [ref=e49]:
+          - generic [ref=e50]:
+            - generic [ref=e51]: "bind data:"
+            - combobox [ref=e52]:
+              - option "— none —" [selected]
+          - button "✕" [ref=e53] [cursor=pointer]
+      - paragraph [ref=e54]: No Data containers yet — create one on the Data page to enable binding.
+      - generic [ref=e55]:
+        - generic [ref=e56]: library
+        - combobox [ref=e57]:
+          - option "local" [selected]
+          - option "astro"
+          - option "xspec"
+          - option "user"
+        - generic [ref=e58]: model
+        - combobox [ref=e59]:
+          - option "— XSPEC unavailable (AttributeError). —" [disabled] [selected]
+        - textbox "alias (optional)" [ref=e60]
+        - button "+ Add component" [ref=e61] [cursor=pointer]
+      - generic [ref=e63]:
+        - generic [ref=e64]: Expression
+        - textbox "e.g. tbabs * cpl or cpl + bb" [ref=e65]:
+          - /placeholder: e.g.  tbabs * cpl   or   cpl + bb
+        - button "⚡ Compose" [ref=e66] [cursor=pointer]

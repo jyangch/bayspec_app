@@ -556,10 +556,8 @@ details[open] .comp-summary::before { transform: rotate(90deg); }
 /* Parameter tables */
 .param-section { margin-bottom: .5rem; }
 .param-section-label {
-  font-size: .75rem;
+  font-size: .8rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .06em;
   color: var(--text-muted);
   margin-bottom: .35rem;
 }
@@ -567,10 +565,8 @@ details[open] .comp-summary::before { transform: rotate(90deg); }
 .param-table th {
   text-align: left;
   padding: .3rem .6rem;
-  font-size: .75rem;
+  font-size: .78rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: .05em;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
   background: var(--surface);
@@ -640,6 +636,184 @@ details[open] .comp-summary::before { transform: rotate(90deg); }
   gap: .6rem;
   color: var(--text-muted);
   font-size: .9rem;
+}
+
+/* ===== Plot controls row (reusable across pages) ===== */
+.plot-controls-row {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  flex-wrap: wrap;
+  padding: .55rem .7rem;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+}
+.plot-controls-row label.caption { margin: 0; white-space: nowrap; }
+.plot-controls-row .param-input,
+.plot-controls-row .param-select { font-size: .85rem; }
+
+.model-overlay-row {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  flex-wrap: wrap;
+  padding: .6rem .75rem;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--bg) 100%);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  margin-top: .6rem;
+}
+.model-overlay-row label.caption { margin: 0; white-space: nowrap; }
+
+.model-overlay-multi {
+  min-width: 160px;
+  max-width: 240px;
+  min-height: 64px;
+  height: auto;
+  padding: .3rem .4rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .82rem;
+  resize: vertical;
+}
+.model-overlay-multi option { padding: .1rem .3rem; }
+
+.xspec-extra-row {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .15rem .5rem;
+  background: rgba(6, 182, 212, .07);
+  border: 1px solid rgba(6, 182, 212, .25);
+  border-radius: 8px;
+}
+.xspec-extra-row label.caption {
+  margin: 0;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: .78rem;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+/* ===== Post-fit model overlay section in Inference page ===== */
+.post-model-section {
+  margin-top: 1rem;
+  padding-top: .85rem;
+  border-top: 1px solid var(--border-soft);
+}
+.post-model-header {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-bottom: .5rem;
+}
+
+/* ===== Sidebar workflow steps ===== */
+.sidebar-workflow {
+  margin: .4rem 0 .2rem;
+  padding: .55rem .65rem .65rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.sidebar-workflow-label {
+  display: block;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: .35rem;
+}
+.sidebar-workflow-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: .2rem;
+  font-size: .82rem;
+  color: var(--text-muted);
+}
+.sidebar-workflow-list li {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .15rem .15rem;
+  border-radius: 6px;
+  margin: 0;
+  line-height: 1.4;
+}
+.sidebar-workflow-list .step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--text-muted);
+  font-weight: 700;
+  font-size: .7rem;
+  flex-shrink: 0;
+}
+.sidebar-workflow-list li.is-active {
+  color: var(--text);
+  font-weight: 600;
+}
+.sidebar-workflow-list li.is-active .step-num {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  color: #fff;
+}
+
+/* ===== Inference page step indicator ===== */
+.infer-stepper {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: .5rem;
+  margin-bottom: 1rem;
+}
+.infer-step {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .25rem;
+  padding: .7rem .9rem;
+  background: var(--surface);
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  position: relative;
+}
+.infer-step .step-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+.infer-step .step-tag::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+.infer-step .step-title {
+  font-weight: 600;
+  font-size: .92rem;
+  color: var(--text);
+  line-height: 1.25;
+}
+.infer-step.done { background: rgba(16, 185, 129, .05); border-color: rgba(16, 185, 129, .2); }
+.infer-step.done .step-tag { color: var(--success); }
+.infer-step.done .step-tag::before { background: var(--success); }
+.infer-step.active { background: rgba(79, 70, 229, .06); border-color: rgba(79, 70, 229, .28); }
+.infer-step.active .step-tag { color: var(--primary); }
+.infer-step.active .step-tag::before { background: var(--primary); box-shadow: 0 0 0 3px rgba(79, 70, 229, .15); }
+@media (max-width: 900px) {
+  .infer-stepper { grid-template-columns: repeat(2, 1fr); }
 }
 
 /* ===== Editor page ===== */

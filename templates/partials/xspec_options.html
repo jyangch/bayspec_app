@@ -1,0 +1,14 @@
+<div class="xspec-extra-row">
+  <label class="caption" style="margin:0">abund</label>
+  <select name="xspec_abund" class="param-select" style="width:auto">
+    {% for opt in abund_choices %}
+      <option value="{{ opt }}" {% if opt == 'wilm' %}selected{% endif %}>{{ opt }}</option>
+    {% endfor %}
+  </select>
+  <label class="caption" style="margin:0">xsect</label>
+  <select name="xspec_xsect" class="param-select" style="width:auto">
+    {% for opt in xsect_choices %}
+      <option value="{{ opt }}" {% if opt == 'vern' %}selected{% endif %}>{{ opt }}</option>
+    {% endfor %}
+  </select>
+</div>

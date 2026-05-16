@@ -56,3 +56,6 @@ CLAUDE.md
 
 # User-uploaded session data (per-session FITS spectra etc.)
 uploads/
+
+# `playwright` test output
+.playwright-test/

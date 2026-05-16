@@ -55,6 +55,17 @@
     </div>
 
     <p class="sidebar-tagline">Bayesian spectral fitting workbench for high-energy astrophysics.</p>
+
+    <div class="sidebar-workflow">
+      <span class="sidebar-workflow-label">Workflow</span>
+      <ol class="sidebar-workflow-list">
+        <li class="{% if active_page == 'data' %}is-active{% endif %}"><span class="step-num">1</span> Upload Data</li>
+        <li class="{% if active_page == 'model' %}is-active{% endif %}"><span class="step-num">2</span> Compose Model</li>
+        <li class="{% if active_page == 'infer' %}is-active{% endif %}"><span class="step-num">3</span> Run Inference</li>
+        <li class="{% if active_page == 'editor' %}is-active{% endif %}"><span class="step-num">4</span> Custom Models <span class="caption">(optional)</span></li>
+      </ol>
+    </div>
+
     <hr />
 
     <nav>

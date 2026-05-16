@@ -4,18 +4,18 @@
 
 {% block content %}
 <h1>Model</h1>
-<p class="page-subtitle">Build spectral models from library components.</p>
+<p class="page-subtitle">Build spectral <code>Model</code> from model components, then bind each <code>Model</code> to a <code>Data</code>.</p>
 
 <!-- Create model bar -->
-<div class="create-bar card">
+<div class="card create-bar" style="margin-bottom:1rem">
   <form class="inline-form"
         hx-post="/model/models"
         hx-target="#model-list"
         hx-swap="outerHTML"
-        onsubmit="this.reset()">
-    <input type="text" name="model_key" placeholder="Model name, e.g. model1" required
-           style="max-width:220px" />
-    <button type="submit" class="btn btn-primary">+ New model</button>
+        onsubmit="setTimeout(()=>this.reset(),0)">
+    <input type="text" name="model_key" placeholder="Model name (auto if empty, e.g. Model1)" />
+    <button type="submit" class="btn btn-primary">+ New Model</button>
+    <span class="caption">Each <code>Model</code> can be built from one or more model components.</span>
   </form>
 </div>
 
