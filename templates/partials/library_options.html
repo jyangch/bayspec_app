@@ -1,0 +1,10 @@
+{% if error %}
+  <option disabled selected value="">— {{ error }} —</option>
+{% elif not models %}
+  <option disabled selected value="">— no models in {{ library }} —</option>
+{% else %}
+  <option disabled selected value="">— pick a {{ library }} model —</option>
+  {% for name in models.keys() %}
+    <option value="{{ name }}">{{ name }}</option>
+  {% endfor %}
+{% endif %}

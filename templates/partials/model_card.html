@@ -4,7 +4,7 @@
 
 <div id="model-card-{{ mkey }}" class="model-card card">
 
-  <!-- ── Card header ── -->
+  <!-- ── Card header: name + bind data + remove ── -->
   <div class="model-card-header">
     <div class="model-card-title">
       <span class="unit-badge">{{ mkey }}</span>
@@ -17,40 +17,78 @@
         <span class="status-label error">{{ mstate.error }}</span>
       {% endif %}
     </div>
-    <button class="btn btn-sm btn-danger"
-            hx-delete="/model/models/{{ mkey }}"
-            hx-target="#model-list"
+
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <form hx-post="/model/models/{{ mkey }}/bind"
+            hx-target="#model-card-{{ mkey }}"
             hx-swap="outerHTML"
-            hx-confirm="Remove model '{{ mkey }}'?">
-      ✕ Remove
-    </button>
+            hx-trigger="change"
+            style="display:flex;align-items:center;gap:.4rem">
+        <label class="caption" style="margin:0">bind data:</label>
+        <select name="data_key" class="param-select">
+          <option value="">— none —</option>
+          {% for dk in s.data.keys() %}
+            <option value="{{ dk }}" {% if mstate.get('data_binding') == dk %}selected{% endif %}>{{ dk }}</option>
+          {% endfor %}
+        </select>
+      </form>
+
+      <button class="btn btn-sm btn-danger"
+              hx-delete="/model/models/{{ mkey }}"
+              hx-target="#model-list"
+              hx-swap="outerHTML"
+              hx-confirm="Remove model {{ mkey }}?">
+        ✕
+      </button>
+    </div>
   </div>
 
-  <!-- ── Add component row ── -->
+  {% if not s.data %}
+    <p class="field-hint" style="margin-top:.4rem">No Data containers yet — create one on the Data page to enable binding.</p>
+  {% endif %}
+
+  <!-- ── Add component form: library + model + alias ── -->
   <form class="add-comp-form"
         hx-post="/model/models/{{ mkey }}/components"
         hx-target="#model-card-{{ mkey }}"
         hx-swap="outerHTML"
-        onsubmit="this.querySelector('[name=comp_key]').value=''">
-    <select name="comp_type" class="comp-type-select">
+        onsubmit="setTimeout(()=>this.querySelector('[name=comp_key]').value='', 0)">
+    <label class="caption" style="margin:0">library</label>
+    <select name="library" class="comp-type-select"
+            hx-get="/model/libraries/local/options"
+            hx-target="#comp-options-{{ mkey }}"
+            hx-trigger="change"
+            hx-vals='js:{}'
+            onchange="this.setAttribute('hx-get', '/model/libraries/'+this.value+'/options'); htmx.process(this)">
+      <option value="local" selected>local</option>
+      <option value="astro">astro</option>
+      <option value="xspec">xspec</option>
+      <option value="user">user</option>
+    </select>
+
+    <label class="caption" style="margin:0">model</label>
+    <select name="comp_type" id="comp-options-{{ mkey }}" class="comp-type-select" required>
+      <option disabled selected value="">— pick a local model —</option>
       {% for n in local_model_names %}
         <option value="{{ n }}">{{ n }}</option>
       {% endfor %}
     </select>
+
     <input type="text" name="comp_key" placeholder="alias (optional)"
            style="max-width:130px" />
-    <button type="submit" class="btn btn-sm">+ Add</button>
+    <button type="submit" class="btn btn-sm">+ Add component</button>
   </form>
 
   <!-- ── Component blocks ── -->
   {% for ckey, comp in components.items() %}
   {% set cfg_d = comp.cfg_info.data_dict %}
   {% set par_d = comp.par_info.data_dict %}
+  {% set ctype = comp.type %}
 
   <details class="comp-block" open>
     <summary class="comp-summary">
-      <span class="comp-badge">{{ ckey }}</span>
-      <code class="comp-type-label">{{ comp.expr }}</code>
+      <span class="unit-badge">{{ ckey }}</span>
+      <code class="comp-type-label">{{ comp.expr }} [{{ ctype }}]</code>
       <button class="btn btn-sm btn-danger comp-del-btn"
               hx-delete="/model/models/{{ mkey }}/components/{{ ckey }}"
               hx-target="#model-card-{{ mkey }}"
@@ -61,18 +99,19 @@
     </summary>
 
     <div class="comp-body">
+      {% if comp.comment %}
+        <p class="caption" style="margin:0 0 .4rem">{{ comp.comment }}</p>
+      {% endif %}
+
       <form hx-post="/model/models/{{ mkey }}/components/{{ ckey }}/update"
             hx-target="#model-card-{{ mkey }}"
             hx-swap="outerHTML">
 
-        <!-- cfg table -->
         {% if cfg_d["cfg#"] %}
         <div class="param-section">
           <div class="param-section-label">Configuration</div>
           <table class="param-table">
-            <thead>
-              <tr><th>Parameter</th><th>Value</th></tr>
-            </thead>
+            <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
             <tbody>
               {% for idx, param, val in zip(cfg_d["cfg#"], cfg_d["Parameter"], cfg_d["Value"]) %}
               <tr>
@@ -95,25 +134,18 @@
         </div>
         {% endif %}
 
-        <!-- par table -->
         <div class="param-section">
           <div class="param-section-label">Parameters</div>
           <table class="param-table">
-            <thead>
-              <tr><th>Parameter</th><th>Value</th><th>Prior</th></tr>
-            </thead>
+            <thead><tr><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
             <tbody>
               {% for idx, param, val, prior in zip(par_d["par#"], par_d["Parameter"], par_d["Value"], par_d["Prior"]) %}
               <tr>
                 <td class="param-name">{{ param }}</td>
-                <td>
-                  <input type="number" name="par_val_{{ idx }}"
-                         value="{{ val }}" step="any" class="param-input" />
-                </td>
-                <td>
-                  <input type="text" name="par_prior_{{ idx }}"
-                         value="{{ prior }}" class="param-input prior-input" />
-                </td>
+                <td><input type="number" name="par_val_{{ idx }}"
+                           value="{{ val }}" step="any" class="param-input" /></td>
+                <td><input type="text"   name="par_prior_{{ idx }}"
+                           value="{{ prior }}" class="param-input prior-input" /></td>
               </tr>
               {% endfor %}
             </tbody>
@@ -124,6 +156,31 @@
           <button type="submit" class="btn btn-sm">✓ Update</button>
         </div>
       </form>
+
+      <!-- Per-component spectra preview -->
+      <div style="margin-top:.6rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap">
+        <label class="caption" style="margin:0">preview style:</label>
+        <select id="cstyle-{{ mkey }}-{{ ckey }}" class="param-select" style="width:auto">
+          {% if ctype == 'add' %}
+            <option value="vFv" selected>vFv</option>
+            <option value="Fv">Fv</option>
+            <option value="NE">NE</option>
+          {% else %}
+            <option value="NoU" selected>NoU (dimensionless)</option>
+          {% endif %}
+        </select>
+        <button class="btn btn-sm"
+                hx-get="/model/models/{{ mkey }}/components/{{ ckey }}/plot"
+                hx-include="#cstyle-{{ mkey }}-{{ ckey }}"
+                hx-vals='js:{style: document.getElementById("cstyle-{{ mkey }}-{{ ckey }}").value}'
+                hx-target="#comp-plot-{{ mkey }}-{{ ckey }}"
+                hx-swap="innerHTML"
+                hx-indicator="#csp-{{ mkey }}-{{ ckey }}">
+          📈 Show component spectrum
+          <span id="csp-{{ mkey }}-{{ ckey }}" class="htmx-indicator"><span class="spinner"></span></span>
+        </button>
+      </div>
+      <div id="comp-plot-{{ mkey }}-{{ ckey }}" class="unit-plot"></div>
     </div>
   </details>
   {% endfor %}
@@ -148,14 +205,58 @@
             hx-target="#model-plot-{{ mkey }}"
             hx-swap="innerHTML"
             hx-indicator="#plot-spinner-{{ mkey }}">
-      📊 Preview
-      <span id="plot-spinner-{{ mkey }}" class="htmx-indicator">
-        <span class="spinner"></span>
-      </span>
+      📊 Composed preview
+      <span id="plot-spinner-{{ mkey }}" class="htmx-indicator"><span class="spinner"></span></span>
     </button>
     {% endif %}
   </div>
 
   <div id="model-plot-{{ mkey }}" class="unit-plot"></div>
+
+  <!-- ── Composed model overview (cfg / par) ── -->
+  {% if composed %}
+    {% set ccfg = composed.cfg_info.data_dict %}
+    {% set cpar = composed.par_info.data_dict %}
+    <details class="comp-block" open style="margin-top:.85rem">
+      <summary class="comp-summary">
+        <span style="font-weight:600">Composed model overview</span>
+        <code class="comp-type-label">{{ composed.expr }} [{{ composed.type }}]</code>
+      </summary>
+      <div class="comp-body">
+        {% if composed.comment %}
+          <p class="caption" style="margin:0 0 .4rem">{{ composed.comment }}</p>
+        {% endif %}
+        {% if ccfg.get("cfg#") %}
+        <div class="param-section">
+          <div class="param-section-label">Configuration</div>
+          <table class="param-table">
+            <thead><tr><th>Component</th><th>Parameter</th><th>Value</th></tr></thead>
+            <tbody>
+              {% for cmp, param, val in zip(ccfg["Component"], ccfg["Parameter"], ccfg["Value"]) %}
+              <tr><td class="param-name">{{ cmp }}</td>
+                  <td class="param-name">{{ param }}</td>
+                  <td>{{ val }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% endif %}
+        <div class="param-section">
+          <div class="param-section-label">Parameters</div>
+          <table class="param-table">
+            <thead><tr><th>Component</th><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
+            <tbody>
+              {% for cmp, param, val, prior in zip(cpar["Component"], cpar["Parameter"], cpar["Value"], cpar["Prior"]) %}
+              <tr><td class="param-name">{{ cmp }}</td>
+                  <td class="param-name">{{ param }}</td>
+                  <td>{{ val }}</td>
+                  <td><code>{{ prior }}</code></td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </details>
+  {% endif %}
 
 </div>

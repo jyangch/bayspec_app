@@ -485,6 +485,67 @@ def _render_model_list(request: Request):
     )
 
 
+def _get_library_models(library: str, s: dict) -> tuple[dict, str]:
+    """Return ({model_name: model_class}, error_message)."""
+    if library == "local":
+        from bayspec.model.local import local_models
+        return local_models, ""
+    if library == "astro":
+        try:
+            from bayspec.model.astro import astro_models
+            return astro_models, ""
+        except Exception as exc:  # noqa: BLE001
+            return {}, f"Astromodels unavailable ({exc.__class__.__name__})."
+    if library == "xspec":
+        try:
+            from bayspec.model.xspec import xspec_models
+            return xspec_models, ""
+        except Exception as exc:  # noqa: BLE001
+            return {}, f"XSPEC unavailable ({exc.__class__.__name__})."
+    if library == "user":
+        return s.get("custom_models", {}), ""
+    return {}, f"Unknown library: {library!r}"
+
+
+def _component_plot_div(comp, style: str = "vFv") -> str:
+    """Spectrum of a single component on a log E grid, in the requested style."""
+    import numpy as np
+    import plotly.graph_objects as go
+    import plotly.offline as pyo
+
+    E = np.logspace(0, 4, 300)
+    NE = np.asarray(comp.func(E), dtype=float)
+    if style == "vFv":
+        y = E ** 2 * NE
+        ylabel = "E² N(E)  (keV² photons s⁻¹ cm⁻² keV⁻¹)"
+    elif style == "Fv":
+        y = E * NE
+        ylabel = "E N(E)  (keV photons s⁻¹ cm⁻² keV⁻¹)"
+    elif style == "NE":
+        y = NE
+        ylabel = "N(E)  (photons s⁻¹ cm⁻² keV⁻¹)"
+    else:  # NoU — dimensionless (mul / math components)
+        y = NE
+        ylabel = "func(E)"
+
+    fig = go.Figure(go.Scatter(
+        x=E, y=y, mode="lines",
+        line=dict(color="#4F46E5", width=2),
+        name=str(getattr(comp, "expr", "comp")),
+    ))
+    fig.update_layout(
+        xaxis=dict(title="Energy (keV)", type="log", showgrid=True, gridcolor="#F1F5F9"),
+        yaxis=dict(title=ylabel, type="log", showgrid=True, gridcolor="#F1F5F9"),
+        template="simple_white",
+        margin=dict(l=65, r=20, t=20, b=50),
+        height=340,
+        showlegend=False,
+        font=dict(family="Inter, system-ui, sans-serif", size=12, color="#0F172A"),
+        paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
+    )
+    return pyo.plot(fig, output_type="div", include_plotlyjs=False)
+
+
 # ── Model API routes ───────────────────────────────────────────────────────────
 
 @app.post("/model/models", response_class=HTMLResponse)
@@ -516,19 +577,69 @@ async def delete_model(mkey: str, request: Request):
 async def add_component(
     mkey: str,
     request: Request,
+    library: str = Form("local"),
     comp_type: str = Form(...),
     comp_key: str = Form(""),
 ):
     _, s, _ = _session(request)
     ckey = _safe_key(comp_key.strip()) if comp_key.strip() else comp_type
-    from bayspec.model.local import local_models as lm
-    if comp_type not in lm:
-        s["model_state"].setdefault(mkey, {})["error"] = f"Unknown model: {comp_type!r}"
+
+    lib_dict, lib_err = _get_library_models(library, s)
+    if lib_err:
+        s["model_state"].setdefault(mkey, {})["error"] = lib_err
         return _render_model_card(mkey, request)
-    comp = lm[comp_type]()
+    if comp_type not in lib_dict:
+        s["model_state"].setdefault(mkey, {})["error"] = (
+            f"Unknown model {comp_type!r} in library {library!r}"
+        )
+        return _render_model_card(mkey, request)
+
+    try:
+        comp = lib_dict[comp_type]()
+    except Exception as exc:
+        s["model_state"].setdefault(mkey, {})["error"] = (
+            f"Failed to instantiate {comp_type}: {exc}"
+        )
+        return _render_model_card(mkey, request)
+
     s["model_component"].setdefault(mkey, {})[ckey] = comp
     s["model_state"].setdefault(mkey, {})["error"] = None
     return _render_model_card(mkey, request)
+
+
+@app.get("/model/libraries/{library}/options", response_class=HTMLResponse)
+async def library_options(library: str, request: Request):
+    _, s, _ = _session(request)
+    lib_dict, err = _get_library_models(library, s)
+    return templates.TemplateResponse(
+        request=request,
+        name="partials/library_options.html",
+        context={"library": library, "models": lib_dict, "error": err},
+    )
+
+
+@app.post("/model/models/{mkey}/bind", response_class=HTMLResponse)
+async def bind_data(mkey: str, request: Request, data_key: str = Form("")):
+    _, s, _ = _session(request)
+    s["model_state"].setdefault(mkey, {})["data_binding"] = data_key or None
+    return _render_model_card(mkey, request)
+
+
+@app.get("/model/models/{mkey}/components/{ckey}/plot", response_class=HTMLResponse)
+async def component_plot(
+    mkey: str,
+    ckey: str,
+    request: Request,
+    style: str = "vFv",
+):
+    _, s, _ = _session(request)
+    comp = s["model_component"].get(mkey, {}).get(ckey)
+    if comp is None:
+        return HTMLResponse("<p class='alert alert-warning'>Component not found.</p>")
+    try:
+        return HTMLResponse(_component_plot_div(comp, style))
+    except Exception as exc:
+        return HTMLResponse(f"<p class='alert alert-danger'>Plot error: {exc}</p>")
 
 
 @app.delete("/model/models/{mkey}/components/{ckey}", response_class=HTMLResponse)
