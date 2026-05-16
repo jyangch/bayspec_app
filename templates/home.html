@@ -5,24 +5,18 @@
 
 {% block content %}
 <div class="hero">
-  <span class="eyebrow">Bayesian spectral fitting</span>
+  <span class="eyebrow">v0.1 · High-energy astrophysics</span>
   <h1>Welcome to <span class="gradient-text">BaySpec</span></h1>
   <p class="lead">
-    A modern, browser-based fitting workbench for high-energy astrophysical spectra.
-    Combine local, Astromodels, XSPEC and user-defined models, then sample with
-    <b>emcee</b>, <b>multinest</b>, <b>lmfit</b> or <b>iminuit</b> — all from a single,
-    reproducible interface.
+    A browser-based spectral fitting workbench. Load OGIP spectra, compose
+    multi-component models from local, Astromodels, XSPEC or user-defined libraries,
+    then run a Bayesian sampler or maximum-likelihood optimizer — all without leaving
+    your browser.
   </p>
   <div class="hero-badges">
-    <a href="https://pypi.org/project/bayspec/" target="_blank" rel="noopener" class="badge badge-primary">
-      PyPI
-    </a>
-    <a href="https://bayspec.readthedocs.io" target="_blank" rel="noopener" class="badge badge-accent">
-      Docs
-    </a>
-    <a href="https://www.gnu.org/licenses/gpl-3.0" target="_blank" rel="noopener" class="badge badge-dark">
-      GPL-3.0
-    </a>
+    <a href="https://pypi.org/project/bayspec/" target="_blank" rel="noopener" class="badge badge-primary">PyPI</a>
+    <a href="https://bayspec.readthedocs.io" target="_blank" rel="noopener" class="badge badge-accent">Docs</a>
+    <a href="https://www.gnu.org/licenses/gpl-3.0" target="_blank" rel="noopener" class="badge badge-dark">GPL-3.0</a>
   </div>
 </div>
 
@@ -30,23 +24,23 @@
 <div class="metrics-grid">
   <div class="metric-card">
     <div class="metric-label">Spectra</div>
-    <div class="metric-value">2 dimensions</div>
+    <div class="metric-value">2-D</div>
     <div class="metric-sub">multi-wavelength · time-dependent</div>
   </div>
   <div class="metric-card">
-    <div class="metric-label">Model</div>
-    <div class="metric-value">4 libraries</div>
+    <div class="metric-label">Model libraries</div>
+    <div class="metric-value">4</div>
     <div class="metric-sub">local · Astromodels · XSPEC · user-defined</div>
   </div>
   <div class="metric-card">
-    <div class="metric-label">Inference</div>
-    <div class="metric-value">4 backends</div>
+    <div class="metric-label">Inference backends</div>
+    <div class="metric-value">4</div>
     <div class="metric-sub">emcee · multinest · lmfit · iminuit</div>
   </div>
   <div class="metric-card">
     <div class="metric-label">Stack</div>
     <div class="metric-value">FastAPI + HTMX</div>
-    <div class="metric-sub">browser-based, no JS framework</div>
+    <div class="metric-sub">no JS framework · multi-user sessions</div>
   </div>
 </div>
 
@@ -54,19 +48,31 @@
 <h4>What you can do</h4>
 <div class="feature-grid">
   <div class="feature-card">
-    <div class="feature-icon">🔭</div>
+    <div class="feature-icon">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round">
+        <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
+      </svg>
+    </div>
     <h3>Bring your data</h3>
-    <p>Upload OGIP-format <code>src</code> / <code>bkg</code> / <code>rsp</code> (or <code>rmf</code> + <code>arf</code>); pick statistic, noticing, grouping, rebinning per unit.</p>
+    <p>Upload OGIP-format <code>src</code> / <code>bkg</code> / <code>rsp</code> (or <code>rmf</code> + <code>arf</code>). Configure fit statistic, notice energy, grouping, and rebinning per unit. Supports multi-unit, multi-wavelength observations.</p>
   </div>
   <div class="feature-card">
-    <div class="feature-icon">🌈</div>
+    <div class="feature-icon">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+    </div>
     <h3>Compose your model</h3>
-    <p>Select model components from local / Astromodels / XSPEC, or paste your own model. Combine with <code>+ - * /</code>.</p>
+    <p>Pick spectral components from local, Astromodels, or XSPEC libraries, or write your own in Python. Combine with <code>+ − × ÷</code> operators to build arbitrary composite models.</p>
   </div>
   <div class="feature-card">
-    <div class="feature-icon">📝</div>
+    <div class="feature-icon">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
+      </svg>
+    </div>
     <h3>Run inference</h3>
-    <p>Pair Data ↔ Model, manually fit, then run a Bayesian sampler or maximum-likelihood optimizer with one click.</p>
+    <p>Pair Data ↔ Model, manually adjust parameters and inspect the fit statistic, then launch a Bayesian sampler or ML optimizer. Posterior summaries, corner plots, and fitted spectra are rendered automatically.</p>
   </div>
 </div>
 
@@ -74,18 +80,18 @@
 <details class="expander">
   <summary>Installation</summary>
   <div class="expander-body">
-    <p><b>BaySpec</b> is on PyPI:</p>
+    <p><b>BaySpec</b> is available on PyPI:</p>
     <pre><code>pip install bayspec</code></pre>
-    <h4>Optional sampler / model backends</h4>
+    <h4>Optional backends</h4>
     <table class="info-table">
-      <thead><tr><th>Backend</th><th>Install</th><th>Use</th></tr></thead>
+      <thead><tr><th>Backend</th><th>Install</th><th>Role</th></tr></thead>
       <tbody>
-        <tr><td><code>emcee</code></td><td><code>pip install emcee</code></td><td>MCMC sampler</td></tr>
-        <tr><td><code>multinest</code></td><td>see <a href="https://johannesbuchner.github.io/PyMultiNest/" target="_blank">PyMultiNest docs</a></td><td>Nested sampling</td></tr>
-        <tr><td><code>lmfit</code></td><td><code>pip install lmfit</code></td><td>Maximum-likelihood fit</td></tr>
-        <tr><td><code>iminuit</code></td><td><code>pip install iminuit</code></td><td>Maximum-likelihood fit</td></tr>
-        <tr><td><code>astromodels</code></td><td><code>pip install astromodels</code></td><td>Bridge to Astromodels</td></tr>
-        <tr><td><code>xspec_models_cxc</code></td><td>requires HEASoft + Xspec ≥ 12.12.1</td><td>Bridge to XSPEC</td></tr>
+        <tr><td><code>emcee</code></td><td><code>pip install emcee</code></td><td>MCMC (affine-invariant ensemble sampler)</td></tr>
+        <tr><td><code>multinest</code></td><td>see <a href="https://johannesbuchner.github.io/PyMultiNest/" target="_blank">PyMultiNest docs</a></td><td>Nested sampling with Bayesian evidence</td></tr>
+        <tr><td><code>lmfit</code></td><td><code>pip install lmfit</code></td><td>Maximum-likelihood optimization</td></tr>
+        <tr><td><code>iminuit</code></td><td><code>pip install iminuit</code></td><td>MINUIT-based maximum-likelihood fit</td></tr>
+        <tr><td><code>astromodels</code></td><td><code>pip install astromodels</code></td><td>Bridge to Astromodels component library</td></tr>
+        <tr><td><code>xspec_models_cxc</code></td><td>requires HEASoft + Xspec ≥ 12.12.1</td><td>Bridge to XSPEC spectral models</td></tr>
       </tbody>
     </table>
   </div>
@@ -95,13 +101,13 @@
   <summary>Documentation &amp; resources</summary>
   <div class="expander-body">
     <ul>
-      <li>📘 <a href="https://bayspec.readthedocs.io" target="_blank">Documentation</a></li>
-      <li>🧪 <a href="https://github.com/jyangch/bayspec/tree/main/examples" target="_blank">Examples</a></li>
-      <li>💻 <a href="https://github.com/jyangch/bayspec" target="_blank">Source code</a></li>
+      <li><a href="https://bayspec.readthedocs.io" target="_blank">Documentation (ReadTheDocs)</a></li>
+      <li><a href="https://github.com/jyangch/bayspec/tree/main/examples" target="_blank">Example notebooks</a></li>
+      <li><a href="https://github.com/jyangch/bayspec" target="_blank">Source code (GitHub)</a></li>
     </ul>
   </div>
 </details>
 
 <hr />
-<p class="caption"><em>BaySpec</em> is distributed under the terms of the <a href="https://www.gnu.org/licenses/gpl-3.0-standalone.html" target="_blank">GPL-3.0</a> license.</p>
+<p class="caption"><em>BaySpec</em> is distributed under the <a href="https://www.gnu.org/licenses/gpl-3.0-standalone.html" target="_blank">GPL-3.0</a> license.</p>
 {% endblock %}

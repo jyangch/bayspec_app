@@ -3,7 +3,27 @@
 {% block title %}BaySpec — Model Editor{% endblock %}
 
 {% block head %}
-<!-- Default code for the editor (read by the module script below) -->
+<!-- Import map: pin every @codemirror/* and @lezer/* to a SINGLE shared instance.
+     CM6 does `instanceof @codemirror/state` checks under the hood; without
+     deduping, two copies of @codemirror/state silently break the editor. -->
+<script type="importmap">
+{
+  "imports": {
+    "@codemirror/state": "https://esm.sh/@codemirror/state@6",
+    "@codemirror/view": "https://esm.sh/@codemirror/view@6?external=@codemirror/state",
+    "@codemirror/language": "https://esm.sh/@codemirror/language@6?external=@codemirror/state,@codemirror/view,@lezer/common,@lezer/highlight,@lezer/lr",
+    "@codemirror/commands": "https://esm.sh/@codemirror/commands@6?external=@codemirror/state,@codemirror/view,@codemirror/language",
+    "@codemirror/search": "https://esm.sh/@codemirror/search@6?external=@codemirror/state,@codemirror/view",
+    "@codemirror/autocomplete": "https://esm.sh/@codemirror/autocomplete@6?external=@codemirror/state,@codemirror/view,@codemirror/language",
+    "@lezer/common": "https://esm.sh/@lezer/common@1",
+    "@lezer/highlight": "https://esm.sh/@lezer/highlight@1?external=@lezer/common",
+    "@lezer/lr": "https://esm.sh/@lezer/lr@1?external=@lezer/common,@lezer/highlight",
+    "@lezer/python": "https://esm.sh/@lezer/python@1?external=@lezer/common,@lezer/highlight,@lezer/lr",
+    "@codemirror/lang-python": "https://esm.sh/@codemirror/lang-python@6?external=@codemirror/state,@codemirror/view,@codemirror/language,@codemirror/autocomplete,@lezer/common,@lezer/highlight,@lezer/lr,@lezer/python"
+  }
+}
+</script>
+<!-- Default template code (read by the module script below) -->
 <script id="default-code" type="text/plain">
 from collections import OrderedDict
 
@@ -33,8 +53,13 @@ class mypl(Additive):
 {% endblock %}
 
 {% block content %}
-<h1>Model Editor</h1>
-<p class="page-subtitle">Write a custom spectral model class and register it for use on the Model page.</p>
+<div class="page-header">
+  <h1>Model Editor</h1>
+  <p class="page-subtitle">
+    Write a custom spectral model class in Python and register it for immediate use
+    on the Model page. Your model is executed in-session — no restart required.
+  </p>
+</div>
 
 <div class="editor-layout">
 
@@ -43,7 +68,7 @@ class mypl(Additive):
     <div class="card editor-card">
       <div class="editor-header">
         <span class="editor-label">Python</span>
-        <span class="caption">Define a subclass of <code>Additive</code> or <code>Multiplicative</code></span>
+        <span class="caption">Subclass <code>Additive</code> or <code>Multiplicative</code> from <code>bayspec.model.model</code></span>
       </div>
       <div id="code-editor"></div>
     </div>
@@ -58,35 +83,98 @@ class mypl(Additive):
       <button type="submit"
               class="btn btn-primary"
               onclick="document.getElementById('code-input').value = window.__cm_view ? window.__cm_view.state.doc.toString() : ''">
-        ⚡ Register model
+        <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+        Register model
         <span id="reg-spinner" class="htmx-indicator"><span class="spinner"></span></span>
       </button>
-      <span class="caption">The class will be available in the Model page dropdown immediately.</span>
+      <span class="caption">The class will be available in the Model page component dropdown immediately.</span>
     </form>
   </div>
 
-  <!-- ── Right: status + model list ── -->
+  <!-- ── Right: status + model list + usage ── -->
   {% include "partials/editor_panel.html" %}
 
 </div>
 
 <script type="module">
-import { EditorView, basicSetup } from 'https://esm.sh/codemirror@6';
-import { python } from 'https://esm.sh/@codemirror/lang-python';
-import { oneDark } from 'https://esm.sh/@codemirror/theme-one-dark';
+import {
+  EditorView,
+  lineNumbers, highlightActiveLine, highlightActiveLineGutter,
+  keymap, drawSelection, dropCursor, rectangularSelection, crosshairCursor,
+} from '@codemirror/view';
+import { EditorState } from '@codemirror/state';
+import {
+  history, defaultKeymap, historyKeymap, indentWithTab,
+} from '@codemirror/commands';
+import {
+  syntaxHighlighting, defaultHighlightStyle, bracketMatching,
+  indentOnInput, foldGutter, foldKeymap,
+} from '@codemirror/language';
+import {
+  closeBrackets, closeBracketsKeymap,
+  autocompletion, completionKeymap,
+} from '@codemirror/autocomplete';
+import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { python } from '@codemirror/lang-python';
 
 const defaultCode = document.getElementById('default-code').textContent.trimStart();
+
+const lightTheme = EditorView.theme({
+  '&': {
+    height: '420px',
+    fontSize: '13px',
+    color: '#0F172A',
+    backgroundColor: '#FFFFFF',
+  },
+  '.cm-scroller': {
+    overflow: 'auto',
+    fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace",
+  },
+  '.cm-content': { caretColor: '#4F46E5' },
+  '&.cm-focused .cm-cursor': { borderLeftColor: '#4F46E5' },
+  '&.cm-focused .cm-selectionBackground, ::selection': {
+    backgroundColor: 'rgba(79,70,229,0.18)',
+  },
+  '.cm-gutters': {
+    backgroundColor: '#F8FAFC',
+    color: '#94A3B8',
+    border: 'none',
+    borderRight: '1px solid #EEF2F7',
+  },
+  '.cm-activeLine': { backgroundColor: 'rgba(79,70,229,0.04)' },
+  '.cm-activeLineGutter': { backgroundColor: 'rgba(79,70,229,0.06)', color: '#4F46E5' },
+}, { dark: false });
 
 const view = new EditorView({
   doc: defaultCode,
   extensions: [
-    basicSetup,
+    lineNumbers(),
+    highlightActiveLineGutter(),
+    history(),
+    foldGutter(),
+    drawSelection(),
+    dropCursor(),
+    EditorState.allowMultipleSelections.of(true),
+    indentOnInput(),
+    syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+    bracketMatching(),
+    closeBrackets(),
+    autocompletion(),
+    rectangularSelection(),
+    crosshairCursor(),
+    highlightActiveLine(),
+    highlightSelectionMatches(),
+    keymap.of([
+      ...closeBracketsKeymap,
+      ...defaultKeymap,
+      ...searchKeymap,
+      ...historyKeymap,
+      ...foldKeymap,
+      ...completionKeymap,
+      indentWithTab,
+    ]),
     python(),
-    oneDark,
-    EditorView.theme({
-      '&': { height: '420px', fontSize: '13px' },
-      '.cm-scroller': { overflow: 'auto', fontFamily: "'JetBrains Mono', monospace" },
-    }),
+    lightTheme,
   ],
   parent: document.getElementById('code-editor'),
 });

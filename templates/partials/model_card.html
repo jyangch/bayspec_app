@@ -4,7 +4,7 @@
 
 <div id="model-card-{{ mkey }}" class="model-card card">
 
-  <!-- ── Card header: name + bind data + remove ── -->
+  <!-- ── Card header: name + bind Data + remove ── -->
   <div class="model-card-header">
     <div class="model-card-title">
       <span class="unit-badge">{{ mkey }}</span>
@@ -13,19 +13,19 @@
         <code class="model-expr-badge">{{ composed.expr }}</code>
       {% endif %}
       {% if mstate.get("error") %}
-        <span class="status-dot error" title="{{ mstate.error }}"></span>
-        <span class="status-label error">{{ mstate.error }}</span>
+        <span class="status-dot error"></span>
+        <span class="status-label error" title="{{ mstate.error }}">{{ mstate.error }}</span>
       {% endif %}
     </div>
 
     <div style="display:flex;align-items:center;gap:.5rem">
-      <form hx-post="/model/models/{{ mkey }}/bind"
+      <form class="bind-inline"
+            hx-post="/model/models/{{ mkey }}/bind"
             hx-target="#model-card-{{ mkey }}"
             hx-swap="outerHTML"
-            hx-trigger="change"
-            style="display:flex;align-items:center;gap:.4rem">
-        <label class="caption" style="margin:0">Bind <code>Data</code>:</label>
-        <select name="data_key" class="param-select">
+            hx-trigger="change">
+        <label class="caption bind-inline-label">Bind to Data:</label>
+        <select name="data_key" class="param-select bind-inline-select">
           <option value="">— none —</option>
           {% for dk in s.data.keys() %}
             <option value="{{ dk }}" {% if mstate.get('data_binding') == dk %}selected{% endif %}>{{ dk }}</option>
@@ -37,32 +37,35 @@
               hx-delete="/model/models/{{ mkey }}"
               hx-target="#model-list"
               hx-swap="outerHTML"
-              hx-confirm="Remove model {{ mkey }}?">
-        ✕
+              hx-confirm="Remove model '{{ mkey }}'?">
+        <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
       </button>
     </div>
   </div>
 
   {% if not s.data %}
-    <p class="field-hint" style="margin-top:.4rem">No <code>Data</code> containers yet — create one on the Data page to enable binding.</p>
+    <p class="field-hint" style="margin-top:.4rem">
+      No <code>Data</code> containers yet — create one on the
+      <a href="/data">Data page</a> to enable binding.
+    </p>
   {% endif %}
 
-  <!-- ── Add component form: library + model + alias (+ XSPEC abund/xsect) ── -->
+  <!-- ── Add component form ── -->
   <form class="add-comp-form"
         hx-post="/model/models/{{ mkey }}/components"
         hx-target="#model-card-{{ mkey }}"
         hx-swap="outerHTML"
         onsubmit="setTimeout(()=>this.querySelector('[name=comp_key]').value='', 0)">
-    <label class="caption" style="margin:0">library</label>
+    <label class="caption" style="margin:0;white-space:nowrap">Library</label>
     <select name="library" class="comp-type-select"
-            onchange="onLibraryChange_{{ mkey | replace('-','_') }}(this)">
+            onchange="onLibraryChange_{{ mkey | replace('-','_') | replace('.','_') }}(this)">
       <option value="local" selected>local</option>
       <option value="astro">astro</option>
       <option value="xspec">xspec</option>
       <option value="user">user</option>
     </select>
 
-    <label class="caption" style="margin:0">model</label>
+    <label class="caption" style="margin:0;white-space:nowrap">Component</label>
     <select name="comp_type" id="comp-options-{{ mkey }}" class="comp-type-select" required>
       <option disabled selected value="">— pick a local model —</option>
       {% for n in local_model_names %}
@@ -74,10 +77,13 @@
 
     <input type="text" name="comp_key" placeholder="alias (optional)"
            style="max-width:130px" />
-    <button type="submit" class="btn btn-sm">+ Add component</button>
+    <button type="submit" class="btn btn-sm">
+      <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+      Add component
+    </button>
   </form>
   <script>
-    function onLibraryChange_{{ mkey | replace('-','_') }}(sel) {
+    function onLibraryChange_{{ mkey | replace('-','_') | replace('.','_') }}(sel) {
       const lib = sel.value;
       htmx.ajax('GET', '/model/libraries/' + lib + '/options',
                 {target: '#comp-options-{{ mkey }}', swap: 'innerHTML'});
@@ -97,230 +103,270 @@
   {% set par_d = comp.par_info.data_dict %}
   {% set ctype = comp.type %}
 
-  <details class="comp-block" open>
+  <details class="comp-block">
     <summary class="comp-summary">
       <span class="unit-badge">{{ ckey }}</span>
-      <code class="comp-type-label">{{ comp.expr }} [{{ ctype }}]</code>
+      <code class="comp-type-label">{{ comp.expr }}</code>
+      <span class="caption" style="font-size:.78rem;margin-left:.2rem">[{{ ctype }}]</span>
       <button class="btn btn-sm btn-danger comp-del-btn"
               hx-delete="/model/models/{{ mkey }}/components/{{ ckey }}"
               hx-target="#model-card-{{ mkey }}"
               hx-swap="outerHTML"
               onclick="event.stopPropagation()">
-        ✕
+        <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
       </button>
     </summary>
 
     <div class="comp-body">
       {% if comp.comment %}
-        <p class="caption" style="margin:0 0 .4rem">{{ comp.comment }}</p>
+        <p class="caption" style="margin:0 0 .5rem">{{ comp.comment }}</p>
       {% endif %}
+      <div class="comp-body-grid">
+        <div class="comp-body-left">
+          <form hx-post="/model/models/{{ mkey }}/components/{{ ckey }}/update"
+                hx-target="#model-card-{{ mkey }}"
+                hx-swap="outerHTML">
 
-      <form hx-post="/model/models/{{ mkey }}/components/{{ ckey }}/update"
-            hx-target="#model-card-{{ mkey }}"
-            hx-swap="outerHTML">
+            {% if cfg_d["cfg#"] %}
+            <div class="param-section">
+              <div class="param-section-label">Configuration</div>
+              <table class="param-table">
+                <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+                <tbody>
+                  {% for idx, param, val in zip(cfg_d["cfg#"], cfg_d["Parameter"], cfg_d["Value"]) %}
+                  <tr>
+                    <td class="param-name">{{ param }}</td>
+                    <td>
+                      {% if val is sameas true or val is sameas false %}
+                        <select name="cfg_{{ idx }}" class="param-select">
+                          <option value="true"  {% if val %}selected{% endif %}>true</option>
+                          <option value="false" {% if not val %}selected{% endif %}>false</option>
+                        </select>
+                      {% else %}
+                        <input type="number" name="cfg_{{ idx }}"
+                               value="{{ val }}" step="any" class="param-input" />
+                      {% endif %}
+                    </td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
 
-        {% if cfg_d["cfg#"] %}
-        <div class="param-section">
-          <div class="param-section-label">Configuration</div>
-          <table class="param-table">
-            <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
-            <tbody>
-              {% for idx, param, val in zip(cfg_d["cfg#"], cfg_d["Parameter"], cfg_d["Value"]) %}
-              <tr>
-                <td class="param-name">{{ param }}</td>
-                <td>
-                  {% if val is sameas true or val is sameas false %}
-                    <select name="cfg_{{ idx }}" class="param-select">
-                      <option value="true"  {% if val %}selected{% endif %}>true</option>
-                      <option value="false" {% if not val %}selected{% endif %}>false</option>
-                    </select>
-                  {% else %}
-                    <input type="number" name="cfg_{{ idx }}"
-                           value="{{ val }}" step="any" class="param-input" />
-                  {% endif %}
-                </td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+            <div class="param-section">
+              <div class="param-section-label">Parameters</div>
+              <table class="param-table">
+                <thead><tr><th>Name</th><th>Value</th><th>Prior</th></tr></thead>
+                <tbody>
+                  {% for idx, param, val, prior in zip(par_d["par#"], par_d["Parameter"], par_d["Value"], par_d["Prior"]) %}
+                  <tr>
+                    <td class="param-name">{{ param }}</td>
+                    <td><input type="number" name="par_val_{{ idx }}"
+                               value="{{ val }}" step="any" class="param-input" /></td>
+                    <td><input type="text"   name="par_prior_{{ idx }}"
+                               value="{{ prior }}" class="param-input prior-input" /></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+
+            <div class="comp-update-row" style="margin-top:.5rem">
+              <button type="submit" class="btn btn-sm btn-primary">
+                <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                Apply
+              </button>
+            </div>
+          </form>
         </div>
-        {% endif %}
 
-        <div class="param-section">
-          <div class="param-section-label">Parameters</div>
-          <table class="param-table">
-            <thead><tr><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
-            <tbody>
-              {% for idx, param, val, prior in zip(par_d["par#"], par_d["Parameter"], par_d["Value"], par_d["Prior"]) %}
-              <tr>
-                <td class="param-name">{{ param }}</td>
-                <td><input type="number" name="par_val_{{ idx }}"
-                           value="{{ val }}" step="any" class="param-input" /></td>
-                <td><input type="text"   name="par_prior_{{ idx }}"
-                           value="{{ prior }}" class="param-input prior-input" /></td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <!-- Per-component spectrum preview -->
+        <div class="comp-body-right">
+          <div class="plot-controls-row">
+            <div class="overlay-row">
+              <label class="caption" style="min-width:3.5rem">Style</label>
+              <select id="cstyle-{{ mkey }}-{{ ckey }}" class="param-select" style="width:auto">
+                {% if ctype == 'add' %}
+                  <option value="vFv" selected>vFv</option>
+                  <option value="Fv">Fv</option>
+                  <option value="NE">NE</option>
+                {% else %}
+                  <option value="NoU" selected>NoU</option>
+                {% endif %}
+              </select>
+            </div>
+
+            <div class="overlay-row">
+              <label class="caption" style="min-width:3.5rem">E (log₁₀ keV)</label>
+              <input id="celo-{{ mkey }}-{{ ckey }}" type="number" step="0.5" value="0"
+                     class="param-input" style="width:62px" />
+              <span class="caption">–</span>
+              <input id="cehi-{{ mkey }}-{{ ckey }}" type="number" step="0.5" value="4"
+                     class="param-input" style="width:62px" />
+            </div>
+
+            {% if ctype == 'add' %}
+            <div class="overlay-row">
+              <label class="caption" style="min-width:3.5rem">T (s)</label>
+              <input id="ctime-{{ mkey }}-{{ ckey }}" type="number" step="any"
+                     placeholder="optional"
+                     class="param-input" style="width:96px" />
+            </div>
+            {% endif %}
+
+            <div class="overlay-row">
+              <button class="btn btn-sm"
+                      hx-get="/model/models/{{ mkey }}/components/{{ ckey }}/plot"
+                      hx-vals='js:{
+                        style: document.getElementById("cstyle-{{ mkey }}-{{ ckey }}").value,
+                        e_lo: document.getElementById("celo-{{ mkey }}-{{ ckey }}").value,
+                        e_hi: document.getElementById("cehi-{{ mkey }}-{{ ckey }}").value,
+                        time: (document.getElementById("ctime-{{ mkey }}-{{ ckey }}")||{value:""}).value
+                      }'
+                      hx-target="#comp-plot-{{ mkey }}-{{ ckey }}"
+                      hx-swap="innerHTML"
+                      hx-indicator="#csp-{{ mkey }}-{{ ckey }}">
+                <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+                Preview spectrum
+                <span id="csp-{{ mkey }}-{{ ckey }}" class="htmx-indicator"><span class="spinner"></span></span>
+              </button>
+            </div>
+          </div>
+          <div id="comp-plot-{{ mkey }}-{{ ckey }}" class="unit-plot"></div>
         </div>
-
-        <div class="comp-update-row">
-          <button type="submit" class="btn btn-sm">✓ Update</button>
-        </div>
-      </form>
-
-      <!-- Per-component spectra preview -->
-      <div class="plot-controls-row" style="margin-top:.6rem">
-        <label class="caption">style</label>
-        <select id="cstyle-{{ mkey }}-{{ ckey }}" class="param-select" style="width:auto">
-          {% if ctype == 'add' %}
-            <option value="vFv" selected>vFv</option>
-            <option value="Fv">Fv</option>
-            <option value="NE">NE</option>
-          {% else %}
-            <option value="NoU" selected>NoU</option>
-          {% endif %}
-        </select>
-
-        <label class="caption">E (log₁₀ keV)</label>
-        <input id="celo-{{ mkey }}-{{ ckey }}" type="number" step="0.5" value="0"
-               class="param-input" style="width:64px" />
-        <span class="caption">→</span>
-        <input id="cehi-{{ mkey }}-{{ ckey }}" type="number" step="0.5" value="4"
-               class="param-input" style="width:64px" />
-
-        {% if ctype == 'add' %}
-        <label class="caption">time</label>
-        <input id="ctime-{{ mkey }}-{{ ckey }}" type="number" step="any"
-               placeholder="optional"
-               class="param-input" style="width:96px" />
-        {% endif %}
-
-        <button class="btn btn-sm"
-                hx-get="/model/models/{{ mkey }}/components/{{ ckey }}/plot"
-                hx-vals='js:{
-                  style: document.getElementById("cstyle-{{ mkey }}-{{ ckey }}").value,
-                  e_lo: document.getElementById("celo-{{ mkey }}-{{ ckey }}").value,
-                  e_hi: document.getElementById("cehi-{{ mkey }}-{{ ckey }}").value,
-                  time: (document.getElementById("ctime-{{ mkey }}-{{ ckey }}")||{value:""}).value
-                }'
-                hx-target="#comp-plot-{{ mkey }}-{{ ckey }}"
-                hx-swap="innerHTML"
-                hx-indicator="#csp-{{ mkey }}-{{ ckey }}">
-          📈 Show model spectrum
-          <span id="csp-{{ mkey }}-{{ ckey }}" class="htmx-indicator"><span class="spinner"></span></span>
-        </button>
       </div>
-      <div id="comp-plot-{{ mkey }}-{{ ckey }}" class="unit-plot"></div>
     </div>
   </details>
   {% endfor %}
 
-  <!-- ── Expression + compose ── -->
-  <div class="compose-row">
-    <form class="compose-form"
-          hx-post="/model/models/{{ mkey }}/compose"
-          hx-target="#model-card-{{ mkey }}"
-          hx-swap="outerHTML">
-      <label class="compose-label">Expression</label>
-      <input type="text" name="expression"
-             value="{{ mstate.get('expression', '') }}"
-             placeholder="e.g.  tbabs * cpl   or   cpl + bb"
-             class="compose-expr-input" />
-      <button type="submit" class="btn btn-sm btn-primary">⚡ Compose</button>
-    </form>
-  </div>
+  <!-- ── Model Expression & Overview ── -->
+  <details class="comp-block" style="margin-top:.85rem">
+    <summary class="comp-summary" style="gap:.5rem">
+      <form hx-post="/model/models/{{ mkey }}/compose"
+            hx-target="#model-card-{{ mkey }}"
+            hx-swap="outerHTML"
+            style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:0"
+            onclick="event.stopPropagation()">
+        <label class="caption" style="margin:0;white-space:nowrap;flex-shrink:0">Expression</label>
+        <input type="text" name="expression"
+               value="{{ mstate.get('expression', '') }}"
+               placeholder="e.g.  tbabs * cpl   or   cpl + bb"
+               class="compose-expr-input" style="flex:1;min-width:0" />
+        <button type="submit" class="btn btn-sm btn-primary" style="flex-shrink:0">Compose</button>
+      </form>
+      {% if mstate.get("error") %}
+        <span class="status-dot error" title="{{ mstate.error }}"></span>
+      {% endif %}
+    </summary>
 
-  {% if composed and components %}
-  <div class="model-overlay-row">
-    <label class="caption">style</label>
-    <select id="mstyle-{{ mkey }}" class="param-select" style="width:auto">
-      <option value="vFv" selected>vFv</option>
-      <option value="Fv">Fv</option>
-      <option value="NE">NE</option>
-      <option value="NoU">NoU</option>
-    </select>
-
-    <label class="caption">components</label>
-    <select id="mcomps-{{ mkey }}" class="param-select model-overlay-multi" multiple>
-      {% for ck, cobj in components.items() %}
-        <option value="{{ ck }}" selected>{{ ck }} [{{ cobj.type }}]</option>
-      {% endfor %}
-    </select>
-
-    <label class="caption">E (log₁₀)</label>
-    <input id="melo-{{ mkey }}" type="number" step="0.5" value="0" class="param-input" style="width:60px" />
-    <span class="caption">→</span>
-    <input id="mehi-{{ mkey }}" type="number" step="0.5" value="4" class="param-input" style="width:60px" />
-
-    <label class="caption">time</label>
-    <input id="mtime-{{ mkey }}" type="number" step="any" placeholder="optional"
-           class="param-input" style="width:90px" />
-
-    <button class="btn btn-sm"
-            hx-get="/model/models/{{ mkey }}/plot"
-            hx-vals='js:{
-              style: document.getElementById("mstyle-{{ mkey }}").value,
-              comps: [...document.getElementById("mcomps-{{ mkey }}").selectedOptions].map(o=>o.value).join(","),
-              e_lo: document.getElementById("melo-{{ mkey }}").value,
-              e_hi: document.getElementById("mehi-{{ mkey }}").value,
-              time: document.getElementById("mtime-{{ mkey }}").value
-            }'
-            hx-target="#model-plot-{{ mkey }}"
-            hx-swap="innerHTML"
-            hx-indicator="#plot-spinner-{{ mkey }}">
-      📈 Show model spectrum
-      <span id="plot-spinner-{{ mkey }}" class="htmx-indicator"><span class="spinner"></span></span>
-    </button>
-  </div>
-  {% endif %}
-
-  <div id="model-plot-{{ mkey }}" class="unit-plot"></div>
-
-  <!-- ── Composed model overview (cfg / par) ── -->
-  {% if composed %}
-    {% set ccfg = composed.cfg_info.data_dict %}
-    {% set cpar = composed.par_info.data_dict %}
-    <details class="comp-block" open style="margin-top:.85rem">
-      <summary class="comp-summary">
-        <span style="font-weight:600">Composed model overview</span>
-        <code class="comp-type-label">{{ composed.expr }} [{{ composed.type }}]</code>
-      </summary>
+    {% if composed %}
+      {% set ccfg = composed.cfg_info.data_dict %}
+      {% set cpar = composed.par_info.data_dict %}
       <div class="comp-body">
         {% if composed.comment %}
-          <p class="caption" style="margin:0 0 .4rem">{{ composed.comment }}</p>
+          <p class="caption" style="margin:0 0 .6rem;white-space:pre-line">{{ composed.comment }}</p>
         {% endif %}
-        {% if ccfg.get("cfg#") %}
-        <div class="param-section">
-          <div class="param-section-label">Configuration</div>
-          <table class="param-table">
-            <thead><tr><th>Component</th><th>Parameter</th><th>Value</th></tr></thead>
-            <tbody>
-              {% for cmp, param, val in zip(ccfg["Component"], ccfg["Parameter"], ccfg["Value"]) %}
-              <tr><td class="param-name">{{ cmp }}</td>
-                  <td class="param-name">{{ param }}</td>
-                  <td>{{ val }}</td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% endif %}
-        <div class="param-section">
-          <div class="param-section-label">Parameters</div>
-          <table class="param-table">
-            <thead><tr><th>Component</th><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
-            <tbody>
-              {% for cmp, param, val, prior in zip(cpar["Component"], cpar["Parameter"], cpar["Value"], cpar["Prior"]) %}
-              <tr><td class="param-name">{{ cmp }}</td>
-                  <td class="param-name">{{ param }}</td>
-                  <td>{{ val }}</td>
-                  <td><code>{{ prior }}</code></td></tr>
-              {% endfor %}
-            </tbody>
-          </table>
+        <div class="comp-body-grid">
+          <div class="comp-body-left">
+            {% if ccfg.get("cfg#") %}
+            <div class="param-section">
+              <div class="param-section-label">Configuration overview</div>
+              <table class="param-table">
+                <thead><tr><th>Component</th><th>Parameter</th><th>Value</th></tr></thead>
+                <tbody>
+                  {% for cmp, param, val in zip(ccfg["Component"], ccfg["Parameter"], ccfg["Value"]) %}
+                  <tr>
+                    <td class="param-name">{{ cmp }}</td>
+                    <td class="param-name">{{ param }}</td>
+                    <td>{{ val }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            {% endif %}
+
+            <div class="param-section">
+              <div class="param-section-label">Parameter overview</div>
+              <table class="param-table">
+                <thead><tr><th>Component</th><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
+                <tbody>
+                  {% for cmp, param, val, prior in zip(cpar["Component"], cpar["Parameter"], cpar["Value"], cpar["Prior"]) %}
+                  <tr>
+                    <td class="param-name">{{ cmp }}</td>
+                    <td class="param-name">{{ param }}</td>
+                    <td>{{ val }}</td>
+                    <td><code>{{ prior }}</code></td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Composed model spectrum preview -->
+          <div class="comp-body-right">
+            {% if components %}
+            <div class="model-overlay-row">
+              <div class="overlay-row">
+                <label class="caption" style="min-width:3.5rem">Style</label>
+                <select id="mstyle-{{ mkey }}" class="param-select" style="width:auto">
+                  <option value="vFv" selected>vFv</option>
+                  <option value="Fv">Fv</option>
+                  <option value="NE">NE</option>
+                  <option value="NoU">NoU</option>
+                </select>
+              </div>
+
+              <div class="overlay-row">
+                <label class="caption" style="min-width:3.5rem">Components</label>
+                <select id="mcomps-{{ mkey }}" class="param-select model-overlay-multi" multiple>
+                  <option value="*" selected>{{ composed.expr }} [{{ composed.type }}]</option>
+                  {% for ck, cobj in components.items() %}
+                    <option value="{{ ck }}">{{ ck }} [{{ cobj.type }}]</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="overlay-row">
+                <label class="caption" style="min-width:3.5rem">E (log₁₀ keV)</label>
+                <input id="melo-{{ mkey }}" type="number" step="0.5" value="0" class="param-input" style="width:60px" />
+                <span class="caption">–</span>
+                <input id="mehi-{{ mkey }}" type="number" step="0.5" value="4" class="param-input" style="width:60px" />
+              </div>
+
+              <div class="overlay-row">
+                <label class="caption" style="min-width:3.5rem">T (s)</label>
+                <input id="mtime-{{ mkey }}" type="number" step="any" placeholder="optional"
+                       class="param-input" style="width:90px" />
+              </div>
+
+              <div class="overlay-row">
+                <button class="btn btn-sm"
+                        hx-get="/model/models/{{ mkey }}/plot"
+                        hx-vals='js:{
+                          style: document.getElementById("mstyle-{{ mkey }}").value,
+                          comps: [...document.getElementById("mcomps-{{ mkey }}").selectedOptions].map(o=>o.value).join(","),
+                          e_lo: document.getElementById("melo-{{ mkey }}").value,
+                          e_hi: document.getElementById("mehi-{{ mkey }}").value,
+                          time: document.getElementById("mtime-{{ mkey }}").value
+                        }'
+                        hx-target="#model-plot-{{ mkey }}"
+                        hx-swap="innerHTML"
+                        hx-indicator="#plot-spinner-{{ mkey }}">
+                  <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+                  Preview model spectra
+                  <span id="plot-spinner-{{ mkey }}" class="htmx-indicator"><span class="spinner"></span></span>
+                </button>
+              </div>
+            </div>
+            {% endif %}
+            <div id="model-plot-{{ mkey }}" class="unit-plot"></div>
+          </div>
         </div>
       </div>
-    </details>
-  {% endif %}
+    {% endif %}
+  </details>
 
 </div>

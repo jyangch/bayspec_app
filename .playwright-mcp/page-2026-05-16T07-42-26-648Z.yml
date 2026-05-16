@@ -1,0 +1,72 @@
+- generic [active] [ref=e1]:
+  - complementary [ref=e2]:
+    - img "BaySpec" [ref=e4]:
+      - generic [ref=e10]: BaySpec
+    - paragraph [ref=e11]: Bayesian spectral fitting workbench for high-energy astrophysics.
+    - generic [ref=e12]:
+      - generic [ref=e13]: Workflow
+      - list [ref=e14]:
+        - listitem [ref=e15]:
+          - generic [ref=e16]: "1"
+          - text: Upload Data
+        - listitem [ref=e17]:
+          - generic [ref=e18]: "2"
+          - text: Compose Model
+        - listitem [ref=e19]:
+          - generic [ref=e20]: "3"
+          - text: Run Inference
+        - listitem [ref=e21]:
+          - generic [ref=e22]: "4"
+          - text: Custom Models
+          - generic [ref=e23]: (optional)
+    - separator [ref=e24]
+    - navigation [ref=e25]:
+      - link "🏠 Home" [ref=e26] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e27]: 🏠
+        - text: Home
+      - link "🔭 Data" [ref=e28] [cursor=pointer]:
+        - /url: /data
+        - generic [ref=e29]: 🔭
+        - text: Data
+      - link "🌈 Model" [ref=e30] [cursor=pointer]:
+        - /url: /model
+        - generic [ref=e31]: 🌈
+        - text: Model
+      - link "📝 Inference" [ref=e32] [cursor=pointer]:
+        - /url: /infer
+        - generic [ref=e33]: 📝
+        - text: Inference
+      - link "✏️ Editor" [ref=e34] [cursor=pointer]:
+        - /url: /editor
+        - generic [ref=e35]: ✏️
+        - text: Editor
+  - main [ref=e37]:
+    - heading "Inference" [level=1] [ref=e38]
+    - paragraph [ref=e39]: Pair Data ↔ Model and run spectral fitting.
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]: Step 1
+          - generic [ref=e44]: Pair Data ↔ Model
+        - generic [ref=e45]:
+          - generic [ref=e46]: Step 2
+          - generic [ref=e47]: Check Configurations & Parameters
+        - generic [ref=e48]:
+          - generic [ref=e49]: Step 3
+          - generic [ref=e50]: Manual Fit & Bayesian Sampling
+        - generic [ref=e51]:
+          - generic [ref=e52]: Step 4
+          - generic [ref=e53]: Inspect Posterior
+      - generic [ref=e54]:
+        - generic [ref=e55]: 📝
+        - paragraph [ref=e56]:
+          - text: Inference pairs are auto-derived from Data ↔ Model bindings.
+          - link "Bind a Data container to a Model" [ref=e57] [cursor=pointer]:
+            - /url: /data
+            - text: Bind a
+            - code [ref=e58]: Data
+            - text: container to a
+            - code [ref=e59]: Model
+          - text: on the Data or Model page first.
+        - button "Build inference" [ref=e61] [cursor=pointer]

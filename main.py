@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -20,6 +20,16 @@ templates.env.globals["zip"] = zip
 from bayspec.model.local import local_models as _local_models
 
 templates.env.globals["local_model_names"] = list(_local_models.keys())
+
+
+def _label(text: str) -> str:
+    """``UNIT_META`` / ``CountsSpectrum NCHAN`` → Title Case for display."""
+    out = text.replace("_", " ")
+    out = re.sub(r"([a-z])([A-Z])", r"\1 \2", out)
+    return " ".join(w.capitalize() for w in out.split())
+
+
+templates.env.globals["_label"] = _label
 
 SESSION_COOKIE = "bsp_session"
 UPLOAD_DIR = Path("uploads")
@@ -608,12 +618,17 @@ def _component_plot_div(
 
 
 @app.post("/model/models", response_class=HTMLResponse)
-async def create_model(request: Request, model_key: str = Form(...)):
+async def create_model(request: Request, model_key: str = Form("")):
     sid, s, is_new = _session(request)
-    key = _safe_key(model_key) or "model"
-    if key not in s["model_component"]:
-        s["model_component"][key] = {}
-        s["model_state"][key] = {"expression": "", "error": None}
+    requested = _safe_key(model_key.strip())
+    if not requested:
+        n = len(s["model_component"]) + 1
+        while f"Model{n}" in s["model_component"]:
+            n += 1
+        requested = f"Model{n}"
+    if requested not in s["model_component"]:
+        s["model_component"][requested] = {}
+        s["model_state"][requested] = {"expression": "", "error": None}
     resp = _render_model_list(s, request)
     if is_new:
         resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite="lax")
@@ -881,6 +896,9 @@ async def model_plot(
 
     all_comps = s["model_component"].get(mkey, {})
     selected = [c.strip() for c in comps.split(",") if c.strip()]
+    plot_composed = "*" in selected
+    if plot_composed:
+        selected = list(all_comps.keys())
     if not selected:
         return HTMLResponse(
             "<p class='alert alert-warning'>Pick at least one component to plot.</p>"
@@ -900,6 +918,10 @@ async def model_plot(
     chosen = [
         all_comps[c] for c in selected if c in all_comps and _style_ok(all_comps[c])
     ]
+    if plot_composed:
+        composed_model = s["model"].get(mkey)
+        if composed_model and _style_ok(composed_model):
+            chosen.insert(0, composed_model)
     if not chosen:
         return HTMLResponse(
             f"<p class='alert alert-warning'>No components compatible with style '{style}'. "
@@ -921,22 +943,25 @@ async def model_plot(
 
 
 def _derived_pairs(s: dict) -> list[dict]:
-    """Scan bidirectional data↔model bindings to auto-derive inference pairs."""
+    """Scan data↔model bindings (unidirectional is sufficient) to derive pairs."""
     pairs = []
     seen = set()
+    # Direction 1: data → model
     for dk, dst in s.get("data_state", {}).items():
         mk = dst.get("model_binding")
-        if not mk:
-            continue
-        if mk not in s.get("model", {}):
-            continue
-        mst = s.get("model_state", {}).get(mk, {})
-        if mst.get("data_binding") != dk:
-            continue
-        key = (dk, mk)
-        if key not in seen:
-            seen.add(key)
-            pairs.append({"data": dk, "model": mk})
+        if mk and mk in s.get("model", {}):
+            key = (dk, mk)
+            if key not in seen:
+                seen.add(key)
+                pairs.append({"data": dk, "model": mk})
+    # Direction 2: model → data (catch any not covered above)
+    for mk, mst in s.get("model_state", {}).items():
+        dk = mst.get("data_binding")
+        if dk and dk in s.get("data", {}) and mk in s.get("model", {}):
+            key = (dk, mk)
+            if key not in seen:
+                seen.add(key)
+                pairs.append({"data": dk, "model": mk})
     return pairs
 
 
@@ -957,11 +982,13 @@ def _posterior_html(post) -> str:
         )
     )
     par_html = (
+        "<div class='posterior-main'>"
         "<div class='param-section-label' style='margin-bottom:.4rem'>Parameters</div>"
         "<table class='param-table'>"
         "<thead><tr><th>Parameter</th><th>Best</th><th>1σ CI</th>"
         "<th>Mean</th><th>Median</th></tr></thead>"
         f"<tbody>{par_rows}</tbody></table>"
+        "</div>"
     )
 
     si = post.stat_info.data_dict
@@ -973,11 +1000,13 @@ def _posterior_html(post) -> str:
         )
     )
     stat_html = (
-        "<div class='param-section-label' style='margin:.75rem 0 .4rem'>Statistics</div>"
+        "<div>"
+        "<div class='param-section-label' style='margin-bottom:.4rem'>Statistics</div>"
         "<table class='param-table'>"
         "<thead><tr><th>Data</th><th>Model</th><th>Statistic</th>"
         "<th>Value</th><th>Bins</th></tr></thead>"
         f"<tbody>{stat_rows}</tbody></table>"
+        "</div>"
     )
 
     ic = post.IC_info.data_dict
@@ -985,13 +1014,15 @@ def _posterior_html(post) -> str:
         f"<tr><td class='param-name'>{k}</td><td>{_fmt(ic[k][0])}</td></tr>" for k in ic
     )
     ic_html = (
-        "<div class='param-section-label' style='margin:.75rem 0 .4rem'>Information Criteria</div>"
+        "<div>"
+        "<div class='param-section-label' style='margin-bottom:.4rem'>Information Criteria</div>"
         "<table class='param-table'>"
         "<thead><tr><th>Criteria</th><th>Value</th></tr></thead>"
         f"<tbody>{ic_rows}</tbody></table>"
+        "</div>"
     )
 
-    return par_html + stat_html + ic_html
+    return par_html + f"<div class='posterior-side'>{stat_html}{ic_html}</div>"
 
 
 def _render_infer_panel(s: dict, request: Request):
@@ -1019,7 +1050,16 @@ def _model_spectra_div(
     """Post-fit component spectra rendered via ``Plot.model(post=True)``."""
     post.at_par(post.par_best)
     components = s["model_component"].get(mkey, {})
-    comps = [components[ck] for ck in comp_keys if ck in components]
+
+    comps = []
+    # Non-string entries pass through directly (e.g. composed model object)
+    for ck in comp_keys:
+        if isinstance(ck, str):
+            if ck in components:
+                comps.append(components[ck])
+        else:
+            comps.append(ck)
+
     if not comps:
         return "<p class='alert alert-warning'>No matching components.</p>"
     return _build_model_plot(comps, style, e_lo, e_hi, tarr_val, post=True, height=380)
@@ -1231,19 +1271,17 @@ async def manual_fit(request: Request):
     infer.at_par(now_par)
 
     sd = infer.stat_info.data_dict
-    stat_rows = "".join(
-        f"<tr><td class='param-name'>{d}</td><td>{m}</td>"
-        f"<td>{st}</td><td>{v}</td><td>{b}</td></tr>"
+    tiles = "".join(
+        f"<div class='stat-tile'>"
+        f"<div class='stat-tile-label'>{d} → {m}</div>"
+        f"<div class='stat-tile-value'>{v}</div>"
+        f"<div class='stat-tile-meta'>{st} · {b} bins</div>"
+        f"</div>"
         for d, m, st, v, b in zip(
             sd["Data"], sd["Model"], sd["Statistic"], sd["Value"], sd["Bins"]
         )
     )
-    return HTMLResponse(
-        "<table class='param-table' style='margin-top:.5rem'>"
-        "<thead><tr><th>Data</th><th>Model</th><th>Statistic</th>"
-        "<th>Value</th><th>Bins</th></tr></thead>"
-        f"<tbody>{stat_rows}</tbody></table>"
-    )
+    return HTMLResponse(f"<div class='stat-tiles'>{tiles}</div>")
 
 
 @app.get("/infer/manual/plot", response_class=HTMLResponse)
@@ -1474,6 +1512,36 @@ async def infer_spectra_plot(request: Request):
         )
 
 
+@app.get("/infer/samples.csv")
+async def infer_samples_csv(request: Request):
+    """Download posterior samples (free parameters) as CSV."""
+    _, s, _ = _session(request)
+    post = s["infer_state"].get("posterior")
+    if post is None:
+        return PlainTextResponse(
+            "No posterior available — run inference first.", status_code=404
+        )
+    try:
+        import io
+
+        import numpy as np
+
+        samples = np.asarray(post.param_sample)
+        names = post.free_par_info.data_dict["Parameter"]
+        buf = io.StringIO()
+        buf.write(",".join(str(n) for n in names) + "\n")
+        np.savetxt(buf, samples, delimiter=",", fmt="%.8g")
+        return PlainTextResponse(
+            buf.getvalue(),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": 'attachment; filename="posterior_samples.csv"'
+            },
+        )
+    except Exception as exc:
+        return PlainTextResponse(f"CSV export error: {exc}", status_code=500)
+
+
 @app.get("/infer/plots/model", response_class=HTMLResponse)
 async def infer_model_plot(
     request: Request,
@@ -1493,6 +1561,9 @@ async def infer_model_plot(
 
     all_comps = s["model_component"].get(mkey, {})
     selected = [c.strip() for c in comps.split(",") if c.strip()]
+    plot_composed = "*" in selected
+    if plot_composed:
+        selected = list(all_comps.keys())
     if not selected:
         return HTMLResponse(
             "<p class='alert alert-warning'>Select at least one component.</p>"
@@ -1510,6 +1581,10 @@ async def infer_model_plot(
         return True
 
     keep = [c for c in selected if c in all_comps and _style_ok(all_comps[c])]
+    if plot_composed:
+        composed_model = s["model"].get(mkey)
+        if composed_model and _style_ok(composed_model):
+            keep.insert(0, composed_model)
     if not keep:
         return HTMLResponse(
             f"<p class='alert alert-warning'>No components compatible with style '{style}'. "

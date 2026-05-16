@@ -1,6 +1,6 @@
-// Minimal JS utilities — HTMX handles most interactivity
+// BaySpec app.js — minimal utilities; HTMX handles most interactivity.
 
-// Auto-dismiss alerts after 5 s
+// ── Auto-dismiss alerts ──────────────────────────────────────────────────────
 document.addEventListener('htmx:afterSwap', () => attachDismiss());
 document.addEventListener('DOMContentLoaded', () => attachDismiss());
 
@@ -12,3 +12,15 @@ function attachDismiss() {
     setTimeout(() => el.remove(), ms);
   });
 }
+
+// ── Plotly resize on sidebar resize ─────────────────────────────────────────
+// Re-flow all Plotly charts when the viewport resizes (e.g. window resize).
+let _resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(() => {
+    document.querySelectorAll('.js-plotly-plot').forEach(el => {
+      if (window.Plotly) Plotly.Plots.resize(el);
+    });
+  }, 200);
+});

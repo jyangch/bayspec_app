@@ -4,11 +4,14 @@
 <div id="editor-panel">
 
   {% if est.get("status") %}
-    <div class="alert alert-{{ est.status_type }}">{{ est.status }}</div>
+    <div class="alert alert-{{ est.status_type }}"
+         {% if est.status_type == "success" %}data-autohide="6000"{% endif %}>
+      {{ est.status }}
+    </div>
   {% endif %}
 
   <div class="card">
-    <h3 style="margin-top:0;margin-bottom:.75rem">Custom Models</h3>
+    <h3 style="margin-top:0;margin-bottom:.75rem">Registered models</h3>
     {% if not custom %}
       <p class="field-hint">No custom models registered yet.</p>
     {% else %}
@@ -21,9 +24,29 @@
   </div>
 
   <div class="card" style="margin-top:1rem">
-    <h3 style="margin-top:0;margin-bottom:.5rem">Usage</h3>
-    <p class="caption">After registering, your model appears in the Model page's component dropdown immediately.</p>
-    <p class="caption">Subclass <code>Additive</code> or <code>Multiplicative</code>. Set <code>self.expr</code>, <code>self.config</code>, <code>self.params</code>, and implement <code>func(self, E)</code>.</p>
+    <h3 style="margin-top:0;margin-bottom:.65rem">How to write a custom model</h3>
+    <ol style="padding-left:1.3rem;margin:0;font-size:.9rem;color:var(--text-secondary)">
+      <li style="margin-bottom:.45rem">
+        Subclass <code>Additive</code> or <code>Multiplicative</code> from
+        <code>bayspec.model.model</code>.
+      </li>
+      <li style="margin-bottom:.45rem">
+        Set <code>self.expr</code> (model name), <code>self.comment</code> (description),
+        <code>self.config</code> (fixed settings as <code>OrderedDict</code>), and
+        <code>self.params</code> (free parameters as <code>OrderedDict</code> of
+        <code>Par(value, prior)</code>).
+      </li>
+      <li style="margin-bottom:.45rem">
+        Implement <code>func(self, E, T=None, O=None)</code> — return photon flux
+        array evaluated at energy midpoints <code>E</code> (keV).
+        <code>T</code> is time (seconds) for time-dependent models; <code>O</code>
+        carries optional extra context.
+      </li>
+      <li>
+        Click <strong>Register model</strong>. The class is available immediately
+        in the Model page's <em>user</em> library dropdown.
+      </li>
+    </ol>
   </div>
 
 </div>

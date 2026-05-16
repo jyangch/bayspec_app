@@ -3,8 +3,14 @@
 {% block title %}BaySpec — Inference{% endblock %}
 
 {% block content %}
-<h1>Inference</h1>
-<p class="page-subtitle">Pair Data ↔ Model and run spectral fitting.</p>
+<div class="page-header">
+  <h1>Inference</h1>
+  <p class="page-subtitle">
+    Pair <code>Data</code> ↔ <code>Model</code>, inspect configuration and parameters,
+    manually adjust the fit, then launch a Bayesian sampler or maximum-likelihood
+    optimizer to obtain posterior estimates.
+  </p>
+</div>
 
 {% include "partials/infer_panel.html" %}
 {% endblock %}

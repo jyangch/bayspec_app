@@ -1,0 +1,79 @@
+- generic [active] [ref=e1]:
+  - complementary [ref=e2]:
+    - img "BaySpec" [ref=e4]:
+      - generic [ref=e10]: BaySpec
+    - paragraph [ref=e11]: Bayesian spectral fitting workbench for high-energy astrophysics.
+    - generic [ref=e12]:
+      - generic [ref=e13]: Workflow
+      - list [ref=e14]:
+        - listitem [ref=e15]:
+          - generic [ref=e16]: "1"
+          - text: Upload Data
+        - listitem [ref=e17]:
+          - generic [ref=e18]: "2"
+          - text: Compose Model
+        - listitem [ref=e19]:
+          - generic [ref=e20]: "3"
+          - text: Run Inference
+        - listitem [ref=e21]:
+          - generic [ref=e22]: "4"
+          - text: Custom Models
+          - generic [ref=e23]: (optional)
+    - separator [ref=e24]
+    - navigation [ref=e25]:
+      - link "🏠 Home" [ref=e26] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e27]: 🏠
+        - text: Home
+      - link "🔭 Data" [ref=e28] [cursor=pointer]:
+        - /url: /data
+        - generic [ref=e29]: 🔭
+        - text: Data
+      - link "🌈 Model" [ref=e30] [cursor=pointer]:
+        - /url: /model
+        - generic [ref=e31]: 🌈
+        - text: Model
+      - link "📝 Inference" [ref=e32] [cursor=pointer]:
+        - /url: /infer
+        - generic [ref=e33]: 📝
+        - text: Inference
+      - link "✏️ Editor" [ref=e34] [cursor=pointer]:
+        - /url: /editor
+        - generic [ref=e35]: ✏️
+        - text: Editor
+  - main [ref=e37]:
+    - heading "Model Editor" [level=1] [ref=e38]
+    - paragraph [ref=e39]: Write a custom spectral model class and register it for use on the Model page.
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e43]:
+          - generic [ref=e44]: Python
+          - generic [ref=e45]:
+            - text: Define a subclass of
+            - code [ref=e46]: Additive
+            - text: or
+            - code [ref=e47]: Multiplicative
+        - generic [ref=e48]:
+          - button "⚡ Register model" [ref=e49] [cursor=pointer]
+          - generic [ref=e50]: The class will be available in the Model page dropdown immediately.
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - heading "Custom Models" [level=3] [ref=e53]
+          - paragraph [ref=e54]: No custom models registered yet.
+        - generic [ref=e55]:
+          - heading "Usage" [level=3] [ref=e56]
+          - paragraph [ref=e57]: After registering, your model appears in the Model page's component dropdown immediately.
+          - paragraph [ref=e58]:
+            - text: Subclass
+            - code [ref=e59]: Additive
+            - text: or
+            - code [ref=e60]: Multiplicative
+            - text: . Set
+            - code [ref=e61]: self.expr
+            - text: ","
+            - code [ref=e62]: self.config
+            - text: ","
+            - code [ref=e63]: self.params
+            - text: ", and implement"
+            - code [ref=e64]: func(self, E)
+            - text: .

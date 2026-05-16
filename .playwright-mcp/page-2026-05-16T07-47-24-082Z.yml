@@ -1,0 +1,131 @@
+- generic [active] [ref=e1]:
+  - complementary [ref=e2]:
+    - img "BaySpec" [ref=e4]:
+      - generic [ref=e10]: BaySpec
+    - paragraph [ref=e11]: Bayesian spectral fitting workbench for high-energy astrophysics.
+    - generic [ref=e12]:
+      - generic [ref=e13]: Workflow
+      - list [ref=e14]:
+        - listitem [ref=e15]:
+          - generic [ref=e16]: "1"
+          - text: Upload Data
+        - listitem [ref=e17]:
+          - generic [ref=e18]: "2"
+          - text: Compose Model
+        - listitem [ref=e19]:
+          - generic [ref=e20]: "3"
+          - text: Run Inference
+        - listitem [ref=e21]:
+          - generic [ref=e22]: "4"
+          - text: Custom Models
+          - generic [ref=e23]: (optional)
+    - separator [ref=e24]
+    - navigation [ref=e25]:
+      - link "🏠 Home" [ref=e26] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e27]: 🏠
+        - text: Home
+      - link "🔭 Data" [ref=e28] [cursor=pointer]:
+        - /url: /data
+        - generic [ref=e29]: 🔭
+        - text: Data
+      - link "🌈 Model" [ref=e30] [cursor=pointer]:
+        - /url: /model
+        - generic [ref=e31]: 🌈
+        - text: Model
+      - link "📝 Inference" [ref=e32] [cursor=pointer]:
+        - /url: /infer
+        - generic [ref=e33]: 📝
+        - text: Inference
+      - link "✏️ Editor" [ref=e34] [cursor=pointer]:
+        - /url: /editor
+        - generic [ref=e35]: ✏️
+        - text: Editor
+  - main [ref=e37]:
+    - heading "Model Editor" [level=1] [ref=e38]
+    - paragraph [ref=e39]: Write a custom spectral model class and register it for use on the Model page.
+    - generic [ref=e40]:
+      - generic [ref=e41]:
+        - generic [ref=e42]:
+          - generic [ref=e43]:
+            - generic [ref=e44]: Python
+            - generic [ref=e45]:
+              - text: Define a subclass of
+              - code [ref=e46]: Additive
+              - text: or
+              - code [ref=e47]: Multiplicative
+          - generic [ref=e50]:
+            - generic [ref=e51]:
+              - generic [ref=e52]:
+                - generic [ref=e53]: "1"
+                - generic [ref=e54]: "2"
+                - generic [ref=e55]: "3"
+                - generic [ref=e56]: "4"
+                - generic [ref=e57]: "5"
+                - generic [ref=e58]: "6"
+                - generic [ref=e59]: "7"
+                - generic [ref=e60]: "8"
+                - generic [ref=e61]: "9"
+                - generic [ref=e62]: "10"
+                - generic [ref=e63]: "11"
+                - generic [ref=e64]: "12"
+                - generic [ref=e65]: "13"
+                - generic [ref=e66]: "14"
+                - generic [ref=e67]: "15"
+                - generic [ref=e68]: "16"
+                - generic [ref=e69]: "17"
+                - generic [ref=e70]: "18"
+                - generic [ref=e71]: "19"
+                - generic [ref=e72]: "20"
+                - generic [ref=e73]: "21"
+                - generic [ref=e74]: "22"
+                - generic [ref=e75]: "23"
+                - generic [ref=e76]: "24"
+                - generic [ref=e77]: "25"
+              - generic [ref=e78]:
+                - generic [ref=e80]: ⌄
+                - generic [ref=e81]: ⌄
+                - generic [ref=e82]: ⌄
+            - textbox [ref=e83]:
+              - generic [ref=e84]: from collections import OrderedDict
+              - generic [ref=e86]: import numpy as np
+              - generic [ref=e88]: from bayspec.model.model import Additive
+              - generic [ref=e89]: from bayspec.util.param import Par
+              - generic [ref=e90]: from bayspec.util.prior import unif
+              - generic [ref=e93]: "class mypl(Additive):"
+              - generic [ref=e94]: "\"\"\"A simple power-law example model.\"\"\""
+              - generic [ref=e96]: "def __init__(self):"
+              - generic [ref=e97]: self.expr = 'mypl'
+              - generic [ref=e98]: self.comment = 'example custom power law'
+              - generic [ref=e99]: self.config = OrderedDict()
+              - generic [ref=e100]: self.params = OrderedDict()
+              - generic [ref=e101]: self.params['norm'] = Par(1.0, unif(-5, 5))
+              - generic [ref=e102]: self.params['index'] = Par(-2.0, unif(-5, 0))
+              - generic [ref=e104]: "def func(self, E, T=None, O=None):"
+              - generic [ref=e105]: norm = 10 ** self.params['norm'].value
+              - generic [ref=e106]: index = self.params['index'].value
+              - generic [ref=e107]: return norm * np.asarray(E) ** index
+        - generic [ref=e109]:
+          - button "⚡ Register model" [ref=e110] [cursor=pointer]
+          - generic [ref=e111]: The class will be available in the Model page dropdown immediately.
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - heading "Custom Models" [level=3] [ref=e114]
+          - paragraph [ref=e115]: No custom models registered yet.
+        - generic [ref=e116]:
+          - heading "Usage" [level=3] [ref=e117]
+          - paragraph [ref=e118]: After registering, your model appears in the Model page's component dropdown immediately.
+          - paragraph [ref=e119]:
+            - text: Subclass
+            - code [ref=e120]: Additive
+            - text: or
+            - code [ref=e121]: Multiplicative
+            - text: . Set
+            - code [ref=e122]: self.expr
+            - text: ","
+            - code [ref=e123]: self.config
+            - text: ","
+            - code [ref=e124]: self.params
+            - text: ", and implement"
+            - code [ref=e125]: func(self, E)
+            - text: .

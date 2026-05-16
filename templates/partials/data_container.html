@@ -4,18 +4,28 @@
 
 <div class="card data-container" id="data-container-{{ data_key }}" style="margin-bottom:1rem">
 
-  <!-- Header: name + bind + delete -->
-  <div class="data-container-header" style="display:flex;align-items:center;gap:.6rem;">
+  <!-- ── Header: name + unit count + bind Model + delete ── -->
+  <div class="data-container-header" style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
     <span class="unit-badge" style="font-size:.95rem">{{ data_key }}</span>
-    <span class="caption">{{ d.data|length }} unit{{ '' if d.data|length == 1 else 's' }}</span>
+    <span class="caption">
+      {{ d.data|length }} unit{{ '' if d.data|length == 1 else 's' }}
+    </span>
 
-    <form style="margin-left:auto;display:flex;align-items:center;gap:.4rem"
+    {% if dst.get('model_binding') %}
+      <span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem;color:var(--success);font-weight:600">
+        <span class="status-dot ok"></span>
+        bound to <code>{{ dst.model_binding }}</code>
+      </span>
+    {% endif %}
+
+    <form class="bind-inline"
+          style="margin-left:auto"
           hx-post="/data/containers/{{ data_key }}/bind"
           hx-target="#data-container-{{ data_key }}"
           hx-swap="outerHTML"
           hx-trigger="change">
-      <label class="caption" style="margin:0">Bind <code>Model</code>:</label>
-      <select name="model_key" class="param-select">
+      <label class="caption bind-inline-label" style="white-space:nowrap">Bind to Model:</label>
+      <select name="model_key" class="param-select bind-inline-select">
         <option value="">— none —</option>
         {% for mk in s.model.keys() %}
           <option value="{{ mk }}" {% if dst.get('model_binding') == mk %}selected{% endif %}>{{ mk }}</option>
@@ -27,16 +37,19 @@
             hx-delete="/data/containers/{{ data_key }}"
             hx-target="#data-container-list"
             hx-swap="outerHTML"
-            hx-confirm="Delete container {{ data_key }} and all its units?">
-      ✕
+            hx-confirm="Delete container '{{ data_key }}' and all its units?">
+      <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
     </button>
   </div>
 
   {% if not s.model %}
-    <p class="field-hint" style="margin-top:.4rem">No <code>Model</code> defined yet — create one on the Model page to enable binding.</p>
+    <p class="field-hint" style="margin-top:.5rem">
+      No <code>Model</code> defined yet — create one on the
+      <a href="/model">Model page</a> to enable binding.
+    </p>
   {% endif %}
 
-  <!-- Existing units -->
+  <!-- ── Existing units ── -->
   {% if d.data or units_state %}
   <div style="margin-top:.85rem">
     {% for unit_key, du in d.data.items() %}
@@ -44,48 +57,55 @@
       <details class="expander" style="margin-bottom:.55rem">
         <summary>
           <span class="unit-badge">{{ unit_key }}</span>
-          <span class="caption" style="margin-left:.4rem">[{{ ust.get('stat', du.stat) }}]</span>
-          <span class="status-dot ok" style="margin-left:.4rem"></span>
+          {% if ust.get('stat') %}
+            <span class="stat-badge">{{ ust.stat }}</span>
+          {% endif %}
+          <span class="status-dot ok" style="margin-left:.3rem"></span>
           <span class="status-label ok">loaded</span>
+          <button class="btn btn-sm btn-danger"
+                  style="margin-left:auto"
+                  hx-delete="/data/containers/{{ data_key }}/units/{{ unit_key }}"
+                  hx-target="#data-container-{{ data_key }}"
+                  hx-swap="outerHTML"
+                  hx-confirm="Remove data unit '{{ unit_key }}'?"
+                  onclick="event.stopPropagation()">
+            <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+          </button>
         </summary>
         <div class="expander-body">
-          <table class="info-table">
-            <thead><tr><th>Property</th><th>Value</th></tr></thead>
-            <tbody>
-              {% set idict = du.info.data_dict %}
-              {% for prop, val in zip(idict["Property"], idict[unit_key]) %}
-              <tr>
-                <td><code>{{ prop }}</code></td>
-                <td>{{ val if val is not none else "—" }}</td>
-              </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-
-          <div style="margin-top:.6rem;display:flex;gap:.4rem;align-items:center">
-            <button class="btn btn-sm"
-                    hx-get="/data/containers/{{ data_key }}/units/{{ unit_key }}/plot"
-                    hx-target="#plot-{{ data_key }}-{{ unit_key }}"
-                    hx-swap="innerHTML"
-                    hx-indicator="#sp-{{ data_key }}-{{ unit_key }}">
-              📊 Show counts spectrum
-              <span id="sp-{{ data_key }}-{{ unit_key }}" class="htmx-indicator"><span class="spinner"></span></span>
-            </button>
-            <button class="btn btn-sm btn-danger"
-                    style="margin-left:auto"
-                    hx-delete="/data/containers/{{ data_key }}/units/{{ unit_key }}"
-                    hx-target="#data-container-{{ data_key }}"
-                    hx-swap="outerHTML"
-                    hx-confirm="Remove data unit {{ unit_key }}?">
-              ✕ Remove unit
-            </button>
+          <div class="unit-body-grid">
+            <div class="unit-body-left">
+              <table class="info-table">
+                <thead><tr><th>Property</th><th>Value</th></tr></thead>
+                <tbody>
+                  {% set idict = du.info.data_dict %}
+                  {% for prop, val in zip(idict["Property"], idict[unit_key]) %}
+                  <tr>
+                    <td><code>{{ prop }}</code></td>
+                    <td>{{ val if val is not none else "—" }}</td>
+                  </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+            <div class="unit-body-right">
+              <button class="btn btn-sm"
+                      hx-get="/data/containers/{{ data_key }}/units/{{ unit_key }}/plot"
+                      hx-target="#plot-{{ data_key }}-{{ unit_key }}"
+                      hx-swap="innerHTML"
+                      hx-indicator="#sp-{{ data_key }}-{{ unit_key }}">
+                <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor" style="flex-shrink:0"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+                Show counts spectrum
+                <span id="sp-{{ data_key }}-{{ unit_key }}" class="htmx-indicator"><span class="spinner"></span></span>
+              </button>
+              <div id="plot-{{ data_key }}-{{ unit_key }}" class="unit-plot"></div>
+            </div>
           </div>
-          <div id="plot-{{ data_key }}-{{ unit_key }}" class="unit-plot"></div>
         </div>
       </details>
     {% endfor %}
 
-    {# Failed units: present in state but never made it into the container #}
+    {# Failed units #}
     {% for unit_key, ust in units_state.items() %}
       {% if unit_key not in d.data %}
       <details class="expander" style="margin-bottom:.55rem" open>
@@ -100,7 +120,7 @@
                   hx-delete="/data/containers/{{ data_key }}/units/{{ unit_key }}"
                   hx-target="#data-container-{{ data_key }}"
                   hx-swap="outerHTML">
-            ✕ Discard
+            Discard
           </button>
         </div>
       </details>
@@ -109,9 +129,9 @@
   </div>
   {% endif %}
 
-  <!-- Add unit form -->
+  <!-- ── Add unit form ── -->
   <details class="form-details" style="margin-top:.85rem" {% if not d.data %}open{% endif %}>
-    <summary>+ Add unit to {{ data_key }}</summary>
+    <summary>+ Add spectral unit to {{ data_key }}</summary>
     <div class="form-details-body">
       <form
         hx-post="/data/containers/{{ data_key }}/units"
@@ -123,49 +143,82 @@
         onsubmit="setTimeout(()=>this.reset(), 0)"
       >
         <div class="form-group">
-          <label>Unit name</label>
-          <input type="text" name="unit_key" placeholder="auto: unit{{ d.data|length + 1 }}" />
+          <label>Unit name <span class="caption">(optional — auto-assigned if empty)</span></label>
+          <input type="text" name="unit_key" placeholder="e.g. unit{{ d.data|length + 1 }}" />
         </div>
 
         <div class="form-group">
-          <label>Spectra batch upload <span class="caption">(auto-detect by filename)</span></label>
+          <label>Batch upload <span class="caption">(auto-detect by filename)</span></label>
           <input type="file" name="spec_files" multiple />
-          <p class="field-hint">Filenames containing src/pha → src, bkg/bak → bkg, rsp/resp → rsp, rmf → rmf, arf → arf.</p>
+          <p class="field-hint">
+            Files are classified by name: <code>src</code>/<code>pha</code> → source,
+            <code>bkg</code>/<code>bak</code> → background,
+            <code>rsp</code>/<code>resp</code> → response,
+            <code>rmf</code> → redistribution matrix,
+            <code>arf</code> → ancillary response.
+          </p>
         </div>
 
         <details class="form-details">
-          <summary>Or upload files individually</summary>
+          <summary>Upload files individually</summary>
           <div class="form-details-body">
-            <div class="form-group"><label>Source spectrum</label><input type="file" name="src" /></div>
+            <div class="form-group"><label>Source spectrum <span class="req">*</span></label><input type="file" name="src" /></div>
             <div class="form-group"><label>Background spectrum</label><input type="file" name="bkg" /></div>
-            <div class="form-group"><label>Response</label><input type="file" name="rsp" /></div>
-            <div class="form-group"><label>RMF</label><input type="file" name="rmf" /></div>
-            <div class="form-group"><label>ARF</label><input type="file" name="arf" /></div>
+            <div class="form-group"><label>Response matrix <code>(rsp)</code></label><input type="file" name="rsp" /></div>
+            <div class="form-group"><label>Redistribution matrix <code>(rmf)</code></label><input type="file" name="rmf" /></div>
+            <div class="form-group"><label>Ancillary response <code>(arf)</code></label><input type="file" name="arf" /></div>
           </div>
         </details>
 
-        <div class="form-group">
-          <label>Fit statistic</label>
-          <select name="stat">
-            {% for opt in ["pgstat", "cstat", "chi2", "ppstat", "pstat", "gstat"] %}
-              <option value="{{ opt }}" {% if opt == 'pgstat' %}selected{% endif %}>{{ opt }}</option>
-            {% endfor %}
-          </select>
-        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>Fit statistic</label>
+            <select name="stat">
+              <optgroup label="Poisson–Poisson">
+                <option value="pgstat" selected>pgstat — profile Gaussian background</option>
+                <option value="cstat">cstat — Cash statistic</option>
+                <option value="ppstat">ppstat — Poisson/Poisson</option>
+                <option value="pstat">pstat — Poisson</option>
+                <option value="gstat">gstat — Gaussian</option>
+              </optgroup>
+              <optgroup label="χ² based">
+                <option value="chi2">chi2 — chi-squared</option>
+              </optgroup>
+              <optgroup label="XSPEC-style">
+                <option value="Xppstat">Xppstat</option>
+                <option value="Xcstat">Xcstat</option>
+                <option value="Xpgstat">Xpgstat</option>
+              </optgroup>
+              <optgroup label="Upper-limit">
+                <option value="ULppstat">ULppstat</option>
+                <option value="ULpgstat">ULpgstat</option>
+              </optgroup>
+            </select>
+          </div>
 
-        <div class="form-group">
-          <label>Notice energy range</label>
-          <input type="text" name="notc_str" placeholder="8-900" />
-          <p class="field-hint">Format: <code>lo-hi</code> separated by <code>;</code></p>
+          <div class="form-group">
+            <label>Notice energy range</label>
+            <input type="text" name="notc_str" placeholder="e.g. 8-900" />
+            <p class="field-hint">Format: <code>lo-hi</code>; separate multiple ranges with <code>;</code></p>
+          </div>
         </div>
 
         <details class="form-details">
           <summary>Grouping</summary>
           <div class="form-details-body">
             <div class="form-row-3">
-              <div class="form-group"><label>min_evt</label><input type="number" name="grpg_min_evt" step="1" /></div>
-              <div class="form-group"><label>min_sigma</label><input type="number" name="grpg_min_sigma" step="0.1" /></div>
-              <div class="form-group"><label>max_bin</label><input type="number" name="grpg_max_bin" step="1" /></div>
+              <div class="form-group">
+                <label>min counts</label>
+                <input type="number" name="grpg_min_evt" step="1" placeholder="—" />
+              </div>
+              <div class="form-group">
+                <label>min sigma</label>
+                <input type="number" name="grpg_min_sigma" step="0.1" placeholder="—" />
+              </div>
+              <div class="form-group">
+                <label>max bins</label>
+                <input type="number" name="grpg_max_bin" step="1" placeholder="—" />
+              </div>
             </div>
           </div>
         </details>
@@ -174,21 +227,31 @@
           <summary>Rebinning</summary>
           <div class="form-details-body">
             <div class="form-row-3">
-              <div class="form-group"><label>min_evt</label><input type="number" name="rebn_min_evt" step="1" /></div>
-              <div class="form-group"><label>min_sigma</label><input type="number" name="rebn_min_sigma" step="0.1" /></div>
-              <div class="form-group"><label>max_bin</label><input type="number" name="rebn_max_bin" step="1" /></div>
+              <div class="form-group">
+                <label>min counts</label>
+                <input type="number" name="rebn_min_evt" step="1" placeholder="—" />
+              </div>
+              <div class="form-group">
+                <label>min sigma</label>
+                <input type="number" name="rebn_min_sigma" step="0.1" placeholder="—" />
+              </div>
+              <div class="form-group">
+                <label>max bins</label>
+                <input type="number" name="rebn_max_bin" step="1" placeholder="—" />
+              </div>
             </div>
           </div>
         </details>
 
-        <div class="form-group">
-          <label>Spectral time (optional)</label>
-          <input type="number" name="time" step="any" placeholder="for time-dependent models" />
+        <div class="form-group" style="max-width:220px">
+          <label>Spectral time <span class="caption">(s)</span></label>
+          <input type="number" name="time" step="any" placeholder="optional — for time-dependent models" />
         </div>
 
         <div class="form-footer">
           <button type="submit" class="btn btn-primary">
-            + Add unit
+            <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/></svg>
+            Add unit
             <span id="add-spinner-{{ data_key }}" class="htmx-indicator"><span class="spinner"></span></span>
           </button>
         </div>
