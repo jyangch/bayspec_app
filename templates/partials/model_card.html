@@ -12,6 +12,12 @@
         <span class="status-dot ok"></span>
         <code class="model-expr-badge">{{ composed.expr }}</code>
       {% endif %}
+      {% if mstate.get('data_binding') %}
+        <span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem;color:var(--success);font-weight:600">
+          <span class="status-dot ok"></span>
+          bound to <code>{{ mstate.data_binding }}</code>
+        </span>
+      {% endif %}
       {% if mstate.get("error") %}
         <span class="status-dot error"></span>
         <span class="status-label error" title="{{ mstate.error }}">{{ mstate.error }}</span>
@@ -42,6 +48,10 @@
       </button>
     </div>
   </div>
+
+  {% if mstate.get('bind_error') %}
+    <div class="alert alert-danger" style="margin-top:.5rem">{{ mstate.bind_error }}</div>
+  {% endif %}
 
   {% if not s.data %}
     <p class="field-hint" style="margin-top:.4rem">

@@ -1355,25 +1355,6 @@ details.infer-collapse > .infer-collapse-body { margin-top: 1rem; }
   margin-bottom: .75rem;
 }
 
-/* ===== Inference: step connector line ===== */
-@media (min-width: 900px) {
-  .infer-stepper {
-    position: relative;
-  }
-  .infer-stepper::after {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 24px;
-    right: 24px;
-    height: 1px;
-    background: var(--border-soft);
-    z-index: 0;
-    pointer-events: none;
-  }
-  .infer-step { z-index: 1; }
-}
-
 /* ===== Run button with gradient pulse ===== */
 @keyframes pulse-primary {
   0%   { box-shadow: 0 0 0 0 rgba(79,70,229,.35); }

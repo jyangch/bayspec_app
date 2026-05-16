@@ -42,6 +42,10 @@
     </button>
   </div>
 
+  {% if dst.get('bind_error') %}
+    <div class="alert alert-danger" style="margin-top:.5rem">{{ dst.bind_error }}</div>
+  {% endif %}
+
   {% if not s.model %}
     <p class="field-hint" style="margin-top:.5rem">
       No <code>Model</code> defined yet — create one on the

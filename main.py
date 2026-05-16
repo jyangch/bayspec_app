@@ -307,9 +307,26 @@ async def delete_container(data_key: str, request: Request):
 @app.post("/data/containers/{data_key}/bind", response_class=HTMLResponse)
 async def bind_model(data_key: str, request: Request, model_key: str = Form("")):
     _, s, _ = _session(request)
-    if data_key not in s["data_state"]:
-        s["data_state"][data_key] = {"model_binding": None, "units": {}}
-    s["data_state"][data_key]["model_binding"] = model_key or None
+    dst = s["data_state"].setdefault(data_key, {"model_binding": None, "units": {}})
+    dst.pop("bind_error", None)
+    if model_key:
+        # Check no other data container already bound to this model (data_state side)
+        for dk, other_dst in s["data_state"].items():
+            if dk != data_key and other_dst.get("model_binding") == model_key:
+                dst["bind_error"] = (
+                    f"Cannot bind: '{model_key}' is already bound to '{dk}'. "
+                    f"Data ↔ Model bindings must be one-to-one."
+                )
+                return _render_container_s(data_key, s, request)
+        # Also check model_state side: target model must not be bound to a different data
+        mst = s["model_state"].get(model_key, {})
+        if mst.get("data_binding") and mst["data_binding"] != data_key:
+            dst["bind_error"] = (
+                f"Cannot bind: '{model_key}' is already bound to '{mst['data_binding']}'. "
+                f"Data ↔ Model bindings must be one-to-one."
+            )
+            return _render_container_s(data_key, s, request)
+    dst["model_binding"] = model_key or None
     return _render_container_s(data_key, s, request)
 
 
@@ -737,7 +754,26 @@ async def xspec_options_empty():
 @app.post("/model/models/{mkey}/bind", response_class=HTMLResponse)
 async def bind_data(mkey: str, request: Request, data_key: str = Form("")):
     _, s, _ = _session(request)
-    s["model_state"].setdefault(mkey, {})["data_binding"] = data_key or None
+    mst = s["model_state"].setdefault(mkey, {})
+    mst.pop("bind_error", None)
+    if data_key:
+        # Check no other model already bound to this data (model_state side)
+        for mk, other_mst in s["model_state"].items():
+            if mk != mkey and other_mst.get("data_binding") == data_key:
+                mst["bind_error"] = (
+                    f"Cannot bind: '{data_key}' is already bound to '{mk}'. "
+                    f"Data ↔ Model bindings must be one-to-one."
+                )
+                return _render_model_card(mkey, s, request)
+        # Also check data_state side: target data must not be bound to a different model
+        dst = s["data_state"].get(data_key, {})
+        if dst.get("model_binding") and dst["model_binding"] != mkey:
+            mst["bind_error"] = (
+                f"Cannot bind: '{data_key}' is already bound to '{dst['model_binding']}'. "
+                f"Data ↔ Model bindings must be one-to-one."
+            )
+            return _render_model_card(mkey, s, request)
+    mst["data_binding"] = data_key or None
     return _render_model_card(mkey, s, request)
 
 
@@ -1183,6 +1219,7 @@ async def build_infer(request: Request):
     ist["pairs"] = pairs
     ist["links"] = {}
     ist["nlink"] = 0
+    ist["step2_confirmed"] = False
     s["infer"] = None
     ist["result"] = None
     ist["posterior"] = None
@@ -1223,6 +1260,14 @@ async def build_infer(request: Request):
     except Exception as exc:
         ist["error"] = str(exc)
 
+    return _render_infer_panel(s, request)
+
+
+@app.post("/infer/confirm", response_class=HTMLResponse)
+async def confirm_step2(request: Request):
+    """Mark step 2 as confirmed, advancing the stepper to step 3."""
+    _, s, _ = _session(request)
+    s["infer_state"]["step2_confirmed"] = True
     return _render_infer_panel(s, request)
 
 

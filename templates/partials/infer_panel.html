@@ -1,7 +1,8 @@
 {% set ist = s.infer_state %}
 {% set infer = s.get('infer') %}
 {% set step_pairs = (ist.get('pairs') | length) > 0 %}
-{% set step_built = infer is not none %}
+{% set step_confirmed = ist.get('step2_confirmed', false) %}
+{% set step_built = step_confirmed %}
 {% set step_run = ist.get('result') is not none %}
 
 <div id="infer-panel">
@@ -14,18 +15,18 @@
       <span class="step-title">Pair Data ↔ Model</span>
     </span>
   </div>
-  <div class="infer-step {% if step_built %}done{% elif step_pairs %}active{% endif %}">
+  <div class="infer-step {% if step_built %}done{% elif infer is not none %}active{% endif %}">
     <span class="step-num">2</span>
     <span class="step-body">
       <span class="step-tag">Step 2</span>
-      <span class="step-title">Check Configs &amp; Parameters</span>
+      <span class="step-title">Check Configs &amp; Params</span>
     </span>
   </div>
   <div class="infer-step {% if step_run %}done{% elif step_built %}active{% endif %}">
     <span class="step-num">3</span>
     <span class="step-body">
       <span class="step-tag">Step 3</span>
-      <span class="step-title">Fit &amp; Sample</span>
+      <span class="step-title">Fit &amp; Inference</span>
     </span>
   </div>
   <div class="infer-step {% if step_run %}active{% endif %}">
@@ -47,8 +48,8 @@
     <div class="empty-title">No fitting pairs yet</div>
     <p style="max-width:36rem;margin:0 auto .9rem">
       Pairs are auto-derived from <code>Data</code> ↔ <code>Model</code> bindings.
-      Bind a container on the <a href="/data">Data</a> or <a href="/model">Model</a>
-      page, then click below to initialise the inference object.
+      Go to the <a href="/data">Data</a> or <a href="/model">Model</a>
+      page to bind a <code>Data</code> to a <code>Model</code>, then click below to initialise the inference object.
     </p>
     <form hx-post="/infer/build"
           hx-target="#infer-panel"
@@ -88,7 +89,7 @@
       {% for pair in ist.pairs %}
         <div class="pair-row">
           <span class="unit-badge">{{ pair.data }}</span>
-          <span class="pair-arrow">→</span>
+          <span class="pair-arrow">↔</span>
           <span class="model-badge">{{ pair.model }}</span>
         </div>
       {% endfor %}
@@ -103,9 +104,8 @@
   <!-- ── Pairs ── -->
   <div class="card infer-section">
     <div class="section-head">
-      <h3>Pairs</h3>
-      <span class="count-pill">{{ ist.pairs|length }}</span>
-      <span class="section-hint">auto-derived from Data ↔ Model bindings</span>
+      <h3>Data ↔ Model pairs</h3>
+      <span class="count-pill">{{ ist.pairs|length }} total</span>
       <div class="section-actions">
         <form hx-post="/infer/build"
               hx-target="#infer-panel"
@@ -114,7 +114,7 @@
               style="display:inline">
           <button type="submit" class="btn btn-sm">
             <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
-            Re-build
+            Re-pair
             <span id="rebuild-spinner" class="htmx-indicator"><span class="spinner"></span></span>
           </button>
         </form>
@@ -124,7 +124,7 @@
       {% for pair in ist.pairs %}
         <div class="pair-row">
           <span class="unit-badge">{{ pair.data }}</span>
-          <span class="pair-arrow">→</span>
+          <span class="pair-arrow">↔</span>
           <span class="model-badge">{{ pair.model }}</span>
           <span class="pair-status">
             <span class="status-dot ok"></span> bound
@@ -228,6 +228,19 @@
           </table>
         </div>
       </details>
+    {% endif %}
+
+    {% if not step_confirmed %}
+    <div style="margin-top:1rem;padding-top:.85rem;border-top:1px solid var(--border-soft)">
+      <form hx-post="/infer/confirm"
+            hx-target="#infer-panel"
+            hx-swap="outerHTML">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+          Confirm &amp; proceed to fitting
+        </button>
+      </form>
+    </div>
     {% endif %}
   </div>
 
