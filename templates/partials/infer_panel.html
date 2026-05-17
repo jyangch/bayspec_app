@@ -1,28 +1,28 @@
 {% set ist = s.infer_state %}
 {% set infer = s.get('infer') %}
-{% set step_pairs = (ist.get('pairs') | length) > 0 %}
+{% set pairs_confirmed = ist.get('pairs_confirmed', false) %}
 {% set step_confirmed = ist.get('step2_confirmed', false) %}
-{% set step_built = step_confirmed %}
+{% set has_pairs = (ist.get('pairs', []) | length) > 0 %}
 {% set step_run = ist.get('result') is not none %}
 
 <div id="infer-panel">
 
 <div class="infer-stepper">
-  <div class="infer-step {% if step_pairs %}done{% elif not step_built %}active{% endif %}">
+  <div class="infer-step {% if pairs_confirmed %}done{% elif has_pairs %}active{% endif %}">
     <span class="step-num">1</span>
     <span class="step-body">
       <span class="step-tag">Step 1</span>
       <span class="step-title">Pair Data ↔ Model</span>
     </span>
   </div>
-  <div class="infer-step {% if step_built %}done{% elif infer is not none %}active{% endif %}">
+  <div class="infer-step {% if step_confirmed %}done{% elif pairs_confirmed %}active{% endif %}">
     <span class="step-num">2</span>
     <span class="step-body">
       <span class="step-tag">Step 2</span>
       <span class="step-title">Check Configs &amp; Params</span>
     </span>
   </div>
-  <div class="infer-step {% if step_run %}done{% elif step_built %}active{% endif %}">
+  <div class="infer-step {% if step_run %}done{% elif step_confirmed %}active{% endif %}">
     <span class="step-num">3</span>
     <span class="step-body">
       <span class="step-tag">Step 3</span>
@@ -33,7 +33,7 @@
     <span class="step-num">4</span>
     <span class="step-body">
       <span class="step-tag">Step 4</span>
-      <span class="step-title">Inspect Posterior</span>
+      <span class="step-title">Analyzer</span>
     </span>
   </div>
 </div>
@@ -102,122 +102,112 @@
   {% endif %}
 
   <!-- ── Pairs ── -->
-  <div class="card infer-section">
-    <div class="section-head">
-      <h3>Data ↔ Model pairs</h3>
-      <span class="count-pill">{{ ist.pairs|length }} total</span>
-      <div class="section-actions">
-        <form hx-post="/infer/build"
-              hx-target="#infer-panel"
-              hx-swap="outerHTML"
-              hx-indicator="#rebuild-spinner"
-              style="display:inline">
-          <button type="submit" class="btn btn-sm">
-            <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
-            Re-pair
-            <span id="rebuild-spinner" class="htmx-indicator"><span class="spinner"></span></span>
-          </button>
-        </form>
+  {% set pairs_confirmed = ist.get('pairs_confirmed', false) %}
+  <details class="card infer-section infer-cfg-par-details" style="margin-bottom:1rem" {% if ist.get('pairs_open', true) %}open{% endif %}>
+    <summary class="infer-cfg-par-summary">
+      <div class="section-head" style="margin-bottom:0;flex:1;min-width:0">
+        <h3>Data ↔ Model pairs</h3>
+        <span class="count-pill">{{ ist.pairs|length }} pairs</span>
+        <div class="section-actions">
+          {% if not pairs_confirmed %}
+          <form hx-post="/infer/confirm_pairs"
+                hx-target="#infer-panel"
+                hx-swap="outerHTML"
+                onclick="event.stopPropagation()">
+            <button type="submit" class="btn btn-primary btn-sm">
+              <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              Confirm &amp; Proceed
+            </button>
+          </form>
+          {% else %}
+          <form hx-post="/infer/build"
+                hx-target="#infer-panel"
+                hx-swap="outerHTML"
+                hx-indicator="#rebuild-spinner"
+                onclick="event.stopPropagation()">
+            <button type="submit" class="btn btn-primary btn-sm">
+              <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+              Re-pair
+              <span id="rebuild-spinner" class="htmx-indicator"><span class="spinner"></span></span>
+            </button>
+          </form>
+          {% endif %}
+        </div>
       </div>
-    </div>
-    <div class="pair-list">
+    </summary>
+    <div class="pair-list" style="margin-top:.75rem">
       {% for pair in ist.pairs %}
         <div class="pair-row">
           <span class="unit-badge">{{ pair.data }}</span>
           <span class="pair-arrow">↔</span>
           <span class="model-badge">{{ pair.model }}</span>
-          <span class="pair-status">
-            <span class="status-dot ok"></span> bound
+          <span style="margin-left:auto;display:inline-flex;align-items:center;gap:.3rem">
+            <span class="status-dot ok"></span>
+            <code class="model-expr-badge">{{ s.data_state[pair.data].units | length }} units</code>
+            <span style="color:var(--text-muted);font-size:.8rem">/</span>
+            <code class="model-expr-badge">{{ s.model_state[pair.model].expression }}</code>
           </span>
         </div>
       {% endfor %}
     </div>
-  </div>
-
-  <!-- ── Configuration (collapsible) ── -->
-  {% set cfg_d = infer.cfg_info.data_dict %}
-  <details class="card infer-section infer-collapse" open>
-    <summary>
-      <h3>Configuration</h3>
-      <span class="count-pill">{{ cfg_d["cfg#"]|length }}</span>
-      <span class="section-hint">per-pair config snapshot</span>
-    </summary>
-    <div class="infer-collapse-body">
-      <table class="param-table">
-        <thead><tr><th>cfg#</th><th>Parameter</th><th>Value</th></tr></thead>
-        <tbody>
-          {% for i, p, v in zip(cfg_d["cfg#"], cfg_d["Parameter"], cfg_d["Value"]) %}
-          <tr><td class="param-name">{{ i }}</td><td class="param-name">{{ p }}</td><td>{{ v }}</td></tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
   </details>
 
-  <!-- ── Parameters + Link groups ── -->
+  <!-- ── Configuration + Parameters collapsible ── -->
+  {% if pairs_confirmed %}
+  {% set cfg_d = infer.cfg_info.data_dict %}
   {% set nd = infer.notable_par_info.data_dict %}
   {% set fd = infer.free_par_info.data_dict %}
-  <div class="card infer-section">
-    <div class="section-head">
-      <h3>Parameters</h3>
-      <span class="count-pill">{{ nd["par#"]|length }} total</span>
-      <span class="count-pill" style="color:var(--primary);background:rgba(79,70,229,.08);border-color:rgba(79,70,229,.18)">
-        {{ fd["par#"]|length }} free
-      </span>
-      {% if ist.get('nlink', 0) > 0 %}
-        <span class="count-pill" style="color:var(--accent);background:rgba(6,182,212,.10);border-color:rgba(6,182,212,.20)">
-          {{ ist.get('nlink', 0) }} linked group{{ '' if ist.get('nlink',0) == 1 else 's' }}
-        </span>
-      {% endif %}
-    </div>
+  <details class="card infer-section infer-cfg-par-details" style="margin-bottom:1rem" {% if ist.get('cfg_par_open') %}open{% endif %}>
+    <summary class="infer-cfg-par-summary">
+      <div class="section-head" style="margin-bottom:0;flex:1;min-width:0">
+        <h3>Configs &amp; Params</h3>
+        <span class="count-pill">{{ cfg_d["cfg#"]|length }} cfgs</span>
+        <span class="count-pill">{{ nd["par#"]|length }} pars</span>
+        <span class="count-pill" style="color:var(--primary);background:rgba(79,70,229,.08);border-color:rgba(79,70,229,.18)">{{ fd["par#"]|length }} free pars</span>
+        <div class="section-actions">
+          {% if not step_confirmed %}
+          <form hx-post="/infer/confirm"
+                hx-target="#infer-panel"
+                hx-swap="outerHTML"
+                onclick="event.stopPropagation()">
+            <button type="submit" class="btn btn-primary btn-sm">
+              <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+              Confirm &amp; Proceed
+            </button>
+          </form>
+          {% else %}
+          <form hx-post="/infer/recheck"
+                hx-target="#infer-panel"
+                hx-swap="outerHTML"
+                onclick="event.stopPropagation()">
+            <button type="submit" class="btn btn-primary btn-sm">
+              <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
+              Re-check
+            </button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </summary>
 
-    <form hx-post="/infer/link"
-          hx-target="#infer-panel"
-          hx-swap="outerHTML">
-      <div class="link-controls">
-        <span class="link-label">Link groups</span>
-        <button type="button" class="nlink-step"
-                onclick="adjustNlink(-1)">−</button>
-        <input type="number" name="nlink" id="nlink-input" value="{{ ist.get('nlink', 0) }}"
-               min="0" max="20" step="1" class="nlink-input"
-               onchange="htmx.process(this.form)" />
-        <button type="button" class="nlink-step"
-                onclick="adjustNlink(1)">+</button>
-        <span class="caption">tie parameters that should share a value across pairs</span>
+    <div class="infer-cfg-par-grid" style="margin-top:1rem">
+
+      <!-- Configuration -->
+      <div>
+        <table class="param-table">
+          <thead><tr><th>cfg#</th><th>Configuration</th><th>Value</th></tr></thead>
+          <tbody>
+            {% for i, p, v in zip(cfg_d["cfg#"], cfg_d["Parameter"], cfg_d["Value"]) %}
+            <tr><td class="param-name">{{ i }}</td><td class="param-name">{{ p }}</td><td>{{ v }}</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
       </div>
 
-      {% for i in range(ist.get('nlink', 0)) %}
-        <div class="link-group">
-          <div class="link-group-head">
-            <span class="link-group-tag">Group {{ i + 1 }}</span>
-            <span class="link-group-help">Select 2+ parameters to link (⌘/Ctrl-click for multi-select)</span>
-          </div>
-          <select name="link_{{ i }}" multiple class="link-group-select">
-            {% for pid in infer.par.keys() %}
-              <option value="par#{{ pid }}"
-                {% if pid in ist.get('links', {}).get(i, []) %}selected{% endif %}>
-                par#{{ pid }} — {{ infer.par[pid].expr }}
-              </option>
-            {% endfor %}
-          </select>
-        </div>
-      {% endfor %}
-
-      {% if ist.get('nlink', 0) > 0 %}
-        <div style="margin-bottom:.85rem">
-          <button type="submit" class="btn btn-sm">✓ Apply links</button>
-        </div>
-      {% endif %}
-    </form>
-
-    {% if infer.par.keys() %}
-      <details class="infer-collapse" open>
-        <summary>
-          <span class="param-section-label" style="margin:0">All parameters</span>
-        </summary>
-        <div style="margin-top:.6rem">
+      <!-- Parameters -->
+      <div>
           <table class="param-table">
-            <thead><tr><th>#</th><th>Expression</th><th>Component</th><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
+            <thead><tr><th>par#</th><th>Expression</th><th>Component</th><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
             <tbody>
               {% for i, e, c, p, v, pr in zip(nd["par#"], nd["Expression"], nd["Component"], nd["Parameter"], nd["Value"], nd["Prior"]) %}
               <tr><td class="param-name">{{ i }}</td><td class="param-name">{{ e }}</td>
@@ -226,73 +216,99 @@
               {% endfor %}
             </tbody>
           </table>
-        </div>
-      </details>
-    {% endif %}
 
-    {% if not step_confirmed %}
-    <div style="margin-top:1rem;padding-top:.85rem;border-top:1px solid var(--border-soft)">
-      <form hx-post="/infer/confirm"
-            hx-target="#infer-panel"
-            hx-swap="outerHTML">
-        <button type="submit" class="btn btn-primary btn-sm">
-          <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-          Confirm &amp; proceed to fitting
-        </button>
-      </form>
+          <!-- Link / Unlink -->
+          <div style="margin-top:1rem">
+            {% if ist.get('link_error') %}
+              <div class="alert alert-danger" style="margin-bottom:.5rem">{{ ist.link_error }}</div>
+            {% endif %}
+            <select name="link_pids" id="link-pids-select" multiple class="param-select model-overlay-multi"
+                    style="width:100%;margin-bottom:.6rem">
+              {% for pid in infer.par.keys() %}
+                <option value="{{ pid }}">par#{{ pid }}</option>
+              {% endfor %}
+            </select>
+            <div style="display:flex;gap:.5rem">
+              <button type="button" class="btn btn-sm"
+                      onclick="submitLinkForm('apply')">
+                <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                Apply links
+              </button>
+              <button type="button" class="btn btn-sm"
+                      onclick="submitLinkForm('unlink_all')">
+                <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+                Unlink all
+              </button>
+            </div>
+          </div>
+      </div>
+
     </div>
-    {% endif %}
-  </div>
+  </details>
+  {% endif %}{# pairs_confirmed #}
 
+  {% if ist.get('step2_confirmed') %}
   <!-- ── Manual fitting ── -->
-  <div class="card infer-section">
-    <form hx-post="/infer/manual"
-          hx-target="#manual-stat"
-          hx-swap="innerHTML">
-      <div class="section-head">
+  <details class="card infer-section infer-cfg-par-details" style="margin-bottom:1rem">
+    <summary class="infer-cfg-par-summary">
+      <div class="section-head" style="margin-bottom:0;flex:1;min-width:0">
         <h3>Manual fit</h3>
-        <span class="section-hint">edit free-parameter values, then recompute the fit statistic</span>
+        <span class="section-hint">edit free-parameter values, then recompute statistic or preview spectrum</span>
         <div class="section-actions">
-          <button type="submit" class="btn btn-sm">
+          <button id="btn-recalc" type="submit" form="manual-fit-form" class="btn btn-sm"
+                  onclick="event.stopPropagation()">
             <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M4 2a1 1 0 011 1v2.101a7.002 7.002 0 0111.601 2.566 1 1 0 11-1.885.666A5.002 5.002 0 005.999 7H9a1 1 0 010 2H4a1 1 0 01-1-1V3a1 1 0 011-1zm.008 9.057a1 1 0 011.276.61A5.002 5.002 0 0014.001 13H11a1 1 0 110-2h5a1 1 0 011 1v5a1 1 0 11-2 0v-2.101a7.002 7.002 0 01-11.601-2.566 1 1 0 01.61-1.276z" clip-rule="evenodd"/></svg>
-            Recalc statistic
+            Re-calculate statistic
           </button>
-          <button type="button" class="btn btn-sm"
+          <button id="btn-preview" type="button" class="btn btn-sm" onclick="event.stopPropagation()"
                   hx-get="/infer/manual/plot"
                   hx-target="#manual-plot"
                   hx-swap="innerHTML"
                   hx-indicator="#mp-spinner">
             <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
-            Render CE spectrum
+            Preview counts spectrum
             <span id="mp-spinner" class="htmx-indicator"><span class="spinner"></span></span>
           </button>
         </div>
       </div>
+    </summary>
 
-      <table class="param-table">
-        <thead><tr><th>#</th><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
-        <tbody>
-          {% for idx, param, val, prior in zip(fd["par#"], fd["Parameter"], fd["Value"], fd["Prior"]) %}
-          <tr>
-            <td class="param-name">{{ idx }}</td>
-            <td class="param-name">{{ param }}</td>
-            <td><input type="number" name="par_val_{{ idx }}"
-                       value="{{ val }}" step="any" class="param-input" style="max-width:140px" /></td>
-            <td><code style="font-size:.82rem">{{ prior }}</code></td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </form>
-    <div id="manual-stat"></div>
-    <div id="manual-plot" class="unit-plot"></div>
-  </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:.75rem">
+      <!-- Left: free parameters -->
+      <div style="min-width:0">
+        <form id="manual-fit-form"
+              hx-post="/infer/manual"
+              hx-target="#manual-stat"
+              hx-swap="innerHTML">
+          <table class="param-table">
+            <thead><tr><th>par#</th><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
+            <tbody>
+              {% for idx, param, val, prior in zip(fd["par#"], fd["Parameter"], fd["Value"], fd["Prior"]) %}
+              <tr>
+                <td class="param-name">{{ idx }}</td>
+                <td class="param-name">{{ param }}</td>
+                <td><input type="text" name="par_val_{{ idx }}"
+                           value="{{ val }}" class="param-input" style="max-width:140px" /></td>
+                <td><code style="font-size:.82rem">{{ prior }}</code></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </form>
+      </div>
+      <!-- Right: statistic or plot -->
+      <div style="min-width:0">
+        <div id="manual-stat"></div>
+        <div id="manual-plot" class="unit-plot" style="display:none"></div>
+      </div>
+    </div>
+  </details>
 
   <!-- ── Run ── -->
   {% set cur_sampler = ist.get('sampler', 'emcee') %}
   <div class="card infer-section">
     <div class="section-head">
-      <h3>Run</h3>
+      <h3>Run inference</h3>
       <span class="section-hint">select a sampler or optimizer and configure its hyperparameters</span>
     </div>
     <form hx-post="/infer/run"
@@ -347,7 +363,7 @@
         <div class="form-group fg-emcee"
              {% if cur_sampler != 'emcee' %}style="display:none"{% endif %}>
           <label>nstep <span class="caption">(MCMC steps)</span></label>
-          <input type="number" name="nstep" value="{{ ist.get('nstep', 2000) }}" min="1" step="100" />
+          <input type="number" name="nstep" value="{{ ist.get('nstep', 1000) }}" min="100" step="100" />
         </div>
         <div class="form-group fg-emcee"
              {% if cur_sampler != 'emcee' %}style="display:none"{% endif %}>
@@ -357,23 +373,23 @@
         <div class="form-group fg-multinest"
              {% if cur_sampler != 'multinest' %}style="display:none"{% endif %}>
           <label>nlive <span class="caption">(live points)</span></label>
-          <input type="number" name="nlive" value="{{ ist.get('nlive', 300) }}" min="50" step="50" />
+          <input type="number" name="nlive" value="{{ ist.get('nlive', 400) }}" min="50" step="50" />
         </div>
         <div class="form-group fg-bayes"
              {% if cur_sampler not in ('emcee', 'multinest') %}style="display:none"{% endif %}>
-          <label>Resume previous run?</label>
+          <label>resume <span class="caption">(continue from checkpoint)</span></label>
           <select name="resume">
-            <option value="No" {% if not ist.get('resume') %}selected{% endif %}>No — start fresh</option>
-            <option value="Yes" {% if ist.get('resume') %}selected{% endif %}>Yes — continue from checkpoint</option>
+            <option value="No" {% if not ist.get('resume') %}selected{% endif %}>No</option>
+            <option value="Yes" {% if ist.get('resume') %}selected{% endif %}>Yes</option>
           </select>
         </div>
 
         <div class="form-group" style="grid-column: 1 / -1">
           <label>Output directory</label>
           <div class="savepath-row">
-            <input type="text" name="savepath" value="{{ ist.get('savepath', './infer_out') }}" />
+            <input type="text" name="savepath" value="{{ ist.get('savepath', 'output') }}" />
           </div>
-          <p class="field-hint">Posterior samples, chain states, and result tables are saved here.</p>
+          <p class="field-hint">Posterior or bootstrap samples, and result tables and figures are saved here.</p>
         </div>
       </div>
 
@@ -385,118 +401,156 @@
     </form>
   </div>
 
-  <!-- ── Results + Plots ── -->
+  <!-- ── Results & Posterior (unified 5-tab card) ── -->
   {% if ist.get("result") %}
     <div class="card infer-section">
       <div class="section-head">
-        <h3>Results</h3>
-        <span class="section-hint">posterior parameter estimates, fit statistics, and information criteria</span>
-      </div>
-      <div class="posterior-result-grid">
-        {{ ist.result | safe }}
-      </div>
-    </div>
-
-    <div class="card infer-section">
-      <div class="section-head">
-        <h3>Posterior plots</h3>
+        <h3>Analyzer</h3>
+        <span class="section-hint">parameter estimates, fit statistics, information criteria, and diagnostic plots</span>
       </div>
 
       <div class="posterior-tabs">
-        <button type="button" class="ptab is-active" data-tab="corner"
+        <button type="button" class="ptab is-active" data-tab="parameters"
+                onclick="showPTab('parameters', this)">Parameters</button>
+        <button type="button" class="ptab" data-tab="stats"
+                onclick="showPTab('stats', this)">Stats &amp; IC</button>
+        <button type="button" class="ptab" data-tab="corner"
                 onclick="showPTab('corner', this)">
-          Corner plot
+          Corner
           <span id="spinner-corner" class="htmx-indicator"><span class="spinner"></span></span>
         </button>
         <button type="button" class="ptab" data-tab="spectra"
                 onclick="showPTab('spectra', this)">
-          Fitted spectra
+          Spectra
           <span id="spinner-spectra" class="htmx-indicator"><span class="spinner"></span></span>
         </button>
+        <button type="button" class="ptab" data-tab="model"
+                onclick="showPTab('model', this)">Model</button>
         <span class="ptab-spacer"></span>
-        <a class="ptab-download" href="/infer/samples.csv" download>
-          <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
-          samples.csv
+        <a class="ptab-download" href="/infer/download" download>
+          <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+          Download all (.zip)
         </a>
       </div>
 
-      <div id="ptab-corner" class="ptab-panel is-active"
-           data-url="/infer/plots/corner"
-           hx-get="/infer/plots/corner"
-           hx-trigger="load"
-           hx-swap="innerHTML"
-           hx-indicator="#spinner-corner">
-        <div class="ptab-empty"><span class="spinner" style="display:inline-block"></span> Rendering corner plot…</div>
-      </div>
-      <div id="ptab-spectra" class="ptab-panel"
-           data-url="/infer/plots/spectra">
-        <div class="ptab-empty">Click <strong>Fitted spectra</strong> to render.</div>
+      <div id="ptab-parameters" class="ptab-panel is-active">
+        {{ ist.result | safe }}
       </div>
 
-      <!-- Per-pair post-fit component spectra -->
-      {% for pair in ist.get("pairs", []) %}
-        {% set comps = s.model_component.get(pair.model, {}) %}
-        {% if comps %}
-          <div class="post-model-section">
-            <div class="post-model-header">
-              <span class="unit-badge">{{ pair.model }}</span>
-              <span class="caption">post-fit component spectra</span>
-            </div>
-            <div class="plot-controls-row">
-              <div class="overlay-row">
-                <label class="caption" style="min-width:3rem">Style</label>
-                <select id="mps-{{ loop.index0 }}" class="param-select" style="width:auto">
-                  <option value="vFv" selected>vFv</option>
-                  <option value="Fv">Fv</option>
-                  <option value="NE">NE</option>
-                  <option value="NoU">NoU</option>
-                </select>
-                <label class="caption" style="margin-left:.5rem">E (log₁₀ keV)</label>
-                <input id="mpelo-{{ loop.index0 }}" type="number" step="0.5" value="0"
-                       class="param-input" style="width:60px" />
-                <span class="caption">–</span>
-                <input id="mpehi-{{ loop.index0 }}" type="number" step="0.5" value="4"
-                       class="param-input" style="width:60px" />
-                <label class="caption" style="margin-left:.5rem">T (s)</label>
-                <input id="mptime-{{ loop.index0 }}" type="number" step="any"
-                       placeholder="optional" class="param-input" style="width:90px" />
-                <button class="btn btn-sm" style="margin-left:auto"
-                        hx-get="/infer/plots/model"
-                        hx-vals='js:{
-                          mkey:"{{ pair.model }}",
-                          style:document.getElementById("mps-{{ loop.index0 }}").value,
-                          comps:[...document.getElementById("mpc-{{ loop.index0 }}").selectedOptions].map(o=>o.value).join(","),
-                          e_lo:document.getElementById("mpelo-{{ loop.index0 }}").value,
-                          e_hi:document.getElementById("mpehi-{{ loop.index0 }}").value,
-                          time:document.getElementById("mptime-{{ loop.index0 }}").value
-                        }'
-                        hx-target="#mplot-{{ loop.index0 }}"
-                        hx-swap="innerHTML"
-                        hx-indicator="#mpsp-{{ loop.index0 }}">
-                  <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
-                  Render
-                  <span id="mpsp-{{ loop.index0 }}" class="htmx-indicator"><span class="spinner"></span></span>
-                </button>
+      <div id="ptab-stats" class="ptab-panel">
+        {{ ist.stat_ic | safe }}
+      </div>
+
+      <div id="ptab-corner" class="ptab-panel" data-url="/infer/plots/corner">
+        <div class="ptab-empty">Click <strong>Corner</strong> to render.</div>
+      </div>
+
+      <div id="ptab-spectra" class="ptab-panel" data-url="/infer/plots/spectra">
+        <div class="plot-controls-row" style="margin-bottom:.6rem">
+          <label class="caption">Style</label>
+          <select id="spectra-style" class="param-select" style="width:auto">
+            <option value="CE" selected>CE (counts spectrum)</option>
+            <option value="NE">NE (photon spectrum)</option>
+            <option value="Fv">Fv (energy flux)</option>
+            <option value="vFv">vFv (νFν)</option>
+          </select>
+          <button class="btn btn-sm"
+                  hx-get="/infer/plots/spectra"
+                  hx-vals='js:{style: document.getElementById("spectra-style").value}'
+                  hx-target="#spectra-plot-container"
+                  hx-swap="innerHTML"
+                  hx-indicator="#spinner-spectra-btn">
+            <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+            Render
+            <span id="spinner-spectra-btn" class="htmx-indicator"><span class="spinner"></span></span>
+          </button>
+        </div>
+        <div id="spectra-plot-container">
+          <div class="ptab-empty">Select style and click <strong>Render</strong>.</div>
+        </div>
+      </div>
+
+      <div id="ptab-model" class="ptab-panel">
+        {% for pair in ist.get("pairs", []) %}
+          {% set comps = s.model_component.get(pair.model, {}) %}
+          {% if comps %}
+            <div class="post-model-section">
+              <div class="post-model-header">
+                <span class="unit-badge">{{ pair.model }}</span>
               </div>
-              <div class="overlay-row">
-                <label class="caption" style="min-width:3rem">Components</label>
-                <select id="mpc-{{ loop.index0 }}" class="param-select model-overlay-multi" multiple>
-                  {% set m_composed = s.model.get(pair.model) %}
-                  {% if m_composed %}
-                    <option value="*" selected>{{ m_composed.expr }} (composed)</option>
-                  {% endif %}
-                  {% for ck, cobj in comps.items() %}
-                    <option value="{{ ck }}">{{ ck }} [{{ cobj.type }}]</option>
-                  {% endfor %}
-                </select>
+              <div class="post-model-body">
+                <div class="post-model-controls">
+                  <div class="model-overlay-row">
+                    <div class="overlay-row">
+                      <label class="caption" style="min-width:3.5rem">Style</label>
+                      <select id="mps-{{ loop.index0 }}" class="param-select" style="width:auto">
+                        <option value="vFv" selected>vFv</option>
+                        <option value="Fv">Fv</option>
+                        <option value="NE">NE</option>
+                        <option value="NoU">NoU</option>
+                      </select>
+                    </div>
+
+                    <div class="overlay-row">
+                      <label class="caption" style="min-width:3.5rem">Components</label>
+                      <select id="mpc-{{ loop.index0 }}" class="param-select model-overlay-multi" multiple>
+                        {% set m_composed = s.model.get(pair.model) %}
+                        {% if m_composed %}
+                          <option value="*" selected>{{ m_composed.expr }} [{{ m_composed.type }}]</option>
+                        {% endif %}
+                        {% for ck, cobj in comps.items() %}
+                          {% if not m_composed or m_composed.expr != ck %}
+                            <option value="{{ ck }}">{{ ck }} [{{ cobj.type }}]</option>
+                          {% endif %}
+                        {% endfor %}
+                      </select>
+                    </div>
+
+                    <div class="overlay-row">
+                      <label class="caption" style="min-width:3.5rem">E (log₁₀ keV)</label>
+                      <input id="mpelo-{{ loop.index0 }}" type="number" step="0.5" value="0"
+                             class="param-input" style="width:60px" />
+                      <span class="caption">–</span>
+                      <input id="mpehi-{{ loop.index0 }}" type="number" step="0.5" value="4"
+                             class="param-input" style="width:60px" />
+                    </div>
+
+                    <div class="overlay-row">
+                      <label class="caption" style="min-width:3.5rem">T (s)</label>
+                      <input id="mptime-{{ loop.index0 }}" type="number" step="any"
+                             placeholder="optional" class="param-input" style="width:90px" />
+                    </div>
+
+                    <div class="overlay-row">
+                      <button class="btn btn-sm"
+                              hx-get="/infer/plots/model"
+                              hx-vals='js:{
+                                mkey:"{{ pair.model }}",
+                                style:document.getElementById("mps-{{ loop.index0 }}").value,
+                                comps:[...document.getElementById("mpc-{{ loop.index0 }}").selectedOptions].map(o=>o.value).join(","),
+                                e_lo:document.getElementById("mpelo-{{ loop.index0 }}").value,
+                                e_hi:document.getElementById("mpehi-{{ loop.index0 }}").value,
+                                time:document.getElementById("mptime-{{ loop.index0 }}").value
+                              }'
+                              hx-target="#mplot-{{ loop.index0 }}"
+                              hx-swap="innerHTML"
+                              hx-indicator="#mpsp-{{ loop.index0 }}">
+                        <svg viewBox="0 0 20 20" width="13" height="13" fill="currentColor" style="flex-shrink:0"><path d="M2 11a1 1 0 011-1h2a1 1 0 011 1v5a1 1 0 01-1 1H3a1 1 0 01-1-1v-5zM8 7a1 1 0 011-1h2a1 1 0 011 1v9a1 1 0 01-1 1H9a1 1 0 01-1-1V7zM14 4a1 1 0 011-1h2a1 1 0 011 1v12a1 1 0 01-1 1h-2a1 1 0 01-1-1V4z"/></svg>
+                        Plot model
+                        <span id="mpsp-{{ loop.index0 }}" class="htmx-indicator"><span class="spinner"></span></span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div id="mplot-{{ loop.index0 }}" class="post-model-plot"></div>
               </div>
             </div>
-            <div id="mplot-{{ loop.index0 }}" class="unit-plot"></div>
-          </div>
-        {% endif %}
-      {% endfor %}
+          {% endif %}
+        {% endfor %}
+      </div>
     </div>
   {% endif %}
+  {% endif %}{# step2_confirmed #}
 
 {% endif %}
 
@@ -530,6 +584,17 @@ function adjustNlink(delta) {
   inp.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+document.addEventListener('htmx:afterSwap', function(e) {
+  if (e.detail.target && e.detail.target.id === 'manual-stat') {
+    document.getElementById('manual-stat').style.display = '';
+    document.getElementById('manual-plot').style.display = 'none';
+  }
+  if (e.detail.target && e.detail.target.id === 'manual-plot') {
+    document.getElementById('manual-stat').style.display = 'none';
+    document.getElementById('manual-plot').style.display = '';
+  }
+});
+
 function showPTab(name, btn) {
   document.querySelectorAll('.posterior-tabs .ptab').forEach(b => b.classList.remove('is-active'));
   btn.classList.add('is-active');
@@ -553,4 +618,20 @@ document.addEventListener('htmx:afterRequest', function(e) {
     t.dataset.loaded = 'true';
   }
 });
+
+function submitLinkForm(action) {
+  const sel = document.getElementById('link-pids-select');
+  if (!sel) return;
+  const pids = Array.from(sel.selectedOptions).map(o => o.value);
+  if (action === 'apply' && pids.length < 2) {
+    htmx.ajax('POST', '/infer/link_error', {target: '#infer-panel', swap: 'outerHTML',
+      values: {error: 'Select 2 or more parameters to link.'}});
+    return;
+  }
+  const url = action === 'apply' ? '/infer/link' : '/infer/unlink_all';
+  const values = {};
+  if (action === 'apply') pids.forEach((p, i) => { values['pid_' + i] = p; });
+  values['npids'] = pids.length;
+  htmx.ajax('POST', url, {target: '#infer-panel', swap: 'outerHTML', values});
+}
 </script>

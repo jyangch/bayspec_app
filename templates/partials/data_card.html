@@ -7,14 +7,14 @@
   <!-- ── Header: name + unit count + bind Model + delete ── -->
   <div class="data-container-header" style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap">
     <span class="unit-badge" style="font-size:.95rem">{{ data_key }}</span>
-    <span class="caption">
+    <code class="model-expr-badge">
       {{ d.data|length }} unit{{ '' if d.data|length == 1 else 's' }}
-    </span>
+    </code>
 
     {% if dst.get('model_binding') %}
       <span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem;color:var(--success);font-weight:600">
         <span class="status-dot ok"></span>
-        bound to <code>{{ dst.model_binding }}</code>
+        Bound to <code>{{ dst.model_binding }}</code>
       </span>
     {% endif %}
 
@@ -47,10 +47,6 @@
   {% endif %}
 
   {% if not s.model %}
-    <p class="field-hint" style="margin-top:.5rem">
-      No <code>Model</code> defined yet — create one on the
-      <a href="/model">Model page</a> to enable binding.
-    </p>
   {% endif %}
 
   <!-- ── Existing units ── -->
@@ -65,7 +61,7 @@
             <span class="stat-badge">{{ ust.stat }}</span>
           {% endif %}
           <span class="status-dot ok" style="margin-left:.3rem"></span>
-          <span class="status-label ok">loaded</span>
+          <span class="status-label ok">Loaded</span>
           <button class="btn btn-sm btn-danger"
                   style="margin-left:auto"
                   hx-delete="/data/containers/{{ data_key }}/units/{{ unit_key }}"
@@ -93,7 +89,7 @@
               </table>
             </div>
             <div class="unit-body-right">
-              <button class="btn btn-sm"
+              <button class="btn btn-sm" style="align-self:flex-start"
                       hx-get="/data/containers/{{ data_key }}/units/{{ unit_key }}/plot"
                       hx-target="#plot-{{ data_key }}-{{ unit_key }}"
                       hx-swap="innerHTML"
@@ -116,7 +112,7 @@
         <summary>
           <span class="unit-badge">{{ unit_key }}</span>
           <span class="status-dot error" style="margin-left:.4rem"></span>
-          <span class="status-label error">failed</span>
+          <span class="status-label error">Failed</span>
         </summary>
         <div class="expander-body">
           <div class="alert alert-danger">{{ ust.get('error', 'Unknown error.') }}</div>
@@ -148,7 +144,7 @@
       >
         <div class="form-group">
           <label>Unit name <span class="caption">(optional)</span></label>
-          <input type="text" name="unit_key" placeholder="auto-assigned if empty, e.g. unit{{ d.data|length + 1 }}" />
+          <input type="text" name="unit_key" placeholder="auto-assigned if empty, e.g. unit{{ next_unit_n }}" />
         </div>
 
         <div class="form-group">

@@ -1,0 +1,74 @@
+[
+    {
+        "par#": "1*",
+        "Class": "model",
+        "Expression": "cpl",
+        "Component": "cpl",
+        "Parameter": "$\\alpha$",
+        "Value": -1.5417360855838873,
+        "Prior": "unif(-2, 2)"
+    },
+    {
+        "par#": "2*",
+        "Class": "model",
+        "Expression": "cpl",
+        "Component": "cpl",
+        "Parameter": "log$E_p$",
+        "Value": 2.281062991822603,
+        "Prior": "unif(0, 4)"
+    },
+    {
+        "par#": "3*",
+        "Class": "model",
+        "Expression": "cpl",
+        "Component": "cpl",
+        "Parameter": "log$A$",
+        "Value": 2.3294121949209043,
+        "Prior": "unif(-10, 10)"
+    },
+    {
+        "par#": "4",
+        "Class": "data",
+        "Expression": "md",
+        "Component": "unit1",
+        "Parameter": "sf",
+        "Value": 1,
+        "Prior": "frozen"
+    },
+    {
+        "par#": "5",
+        "Class": "data",
+        "Expression": "md",
+        "Component": "unit1",
+        "Parameter": "bf",
+        "Value": 1,
+        "Prior": "frozen"
+    },
+    {
+        "par#": "6",
+        "Class": "data",
+        "Expression": "md",
+        "Component": "unit1",
+        "Parameter": "rf",
+        "Value": 1,
+        "Prior": "frozen"
+    },
+    {
+        "par#": "7",
+        "Class": "data",
+        "Expression": "md",
+        "Component": "unit1",
+        "Parameter": "ra",
+        "Value": 0,
+        "Prior": "frozen"
+    },
+    {
+        "par#": "8",
+        "Class": "data",
+        "Expression": "md",
+        "Component": "unit1",
+        "Parameter": "dec",
+        "Value": 0,
+        "Prior": "frozen"
+    }
+]

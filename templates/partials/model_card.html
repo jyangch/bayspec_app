@@ -9,13 +9,12 @@
     <div class="model-card-title">
       <span class="unit-badge">{{ mkey }}</span>
       {% if composed %}
-        <span class="status-dot ok"></span>
         <code class="model-expr-badge">{{ composed.expr }}</code>
       {% endif %}
       {% if mstate.get('data_binding') %}
         <span style="display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem;color:var(--success);font-weight:600">
           <span class="status-dot ok"></span>
-          bound to <code>{{ mstate.data_binding }}</code>
+          Bound to <code>{{ mstate.data_binding }}</code>
         </span>
       {% endif %}
       {% if mstate.get("error") %}
@@ -141,9 +140,8 @@
 
             {% if cfg_d["cfg#"] %}
             <div class="param-section">
-              <div class="param-section-label">Configuration</div>
               <table class="param-table">
-                <thead><tr><th>Parameter</th><th>Value</th></tr></thead>
+                <thead><tr><th>Configuration</th><th>Value</th></tr></thead>
                 <tbody>
                   {% for idx, param, val in zip(cfg_d["cfg#"], cfg_d["Parameter"], cfg_d["Value"]) %}
                   <tr>
@@ -167,9 +165,8 @@
             {% endif %}
 
             <div class="param-section">
-              <div class="param-section-label">Parameters</div>
               <table class="param-table">
-                <thead><tr><th>Name</th><th>Value</th><th>Prior</th><th>Frozen</th></tr></thead>
+                <thead><tr><th>Parameter</th><th>Value</th><th>Prior</th><th>Frozen</th></tr></thead>
                 <tbody>
                   {% for idx, param, val, prior in zip(par_d["par#"], par_d["Parameter"], par_d["Value"], par_d["Prior"]) %}
                   {% set is_frozen = comp.params[param].frozen %}
@@ -194,7 +191,7 @@
             </div>
 
             <div class="comp-update-row" style="margin-top:.5rem">
-              <button type="submit" class="btn btn-sm btn-primary">
+              <button type="submit" class="btn btn-sm">
                 <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
                 Apply
               </button>
@@ -289,9 +286,9 @@
             hx-indicator="#compose-spinner-{{ mkey }}"
             style="display:flex;align-items:center;gap:.5rem;flex:1;min-width:0"
             onclick="event.stopPropagation()">
-        <label class="caption" style="margin:0;white-space:nowrap;flex-shrink:0">Expression</label>
+        <label class="caption" style="margin:0;white-space:nowrap;flex-shrink:0">Model expression</label>
         <input type="text" name="expression"
-               value="{{ mstate.get('expression', '') }}"
+               value="{{ mstate.get('expression', '') if (mstate.get('expression', '') or components|length != 1) else components.keys()|list|first }}"
                placeholder="e.g.  tbabs * cpl   or   cpl + bb"
                class="compose-expr-input" style="flex:1;min-width:0" />
         <button type="submit" class="btn btn-sm btn-primary" style="flex-shrink:0;min-width:90px">
@@ -316,9 +313,8 @@
           <div class="comp-body-left">
             {% if ccfg.get("cfg#") %}
             <div class="param-section">
-              <div class="param-section-label">Configuration overview</div>
               <table class="param-table">
-                <thead><tr><th>Component</th><th>Parameter</th><th>Value</th></tr></thead>
+                <thead><tr><th>Component</th><th>Configuration</th><th>Value</th></tr></thead>
                 <tbody>
                   {% for cmp, param, val in zip(ccfg["Component"], ccfg["Parameter"], ccfg["Value"]) %}
                   <tr>
@@ -333,7 +329,6 @@
             {% endif %}
 
             <div class="param-section">
-              <div class="param-section-label">Parameter overview</div>
               <table class="param-table">
                 <thead><tr><th>Component</th><th>Parameter</th><th>Value</th><th>Prior</th></tr></thead>
                 <tbody>
@@ -369,7 +364,9 @@
                 <select id="mcomps-{{ mkey }}" class="param-select model-overlay-multi" multiple>
                   <option value="*" selected>{{ composed.expr }} [{{ composed.type }}]</option>
                   {% for ck, cobj in components.items() %}
-                    <option value="{{ ck }}">{{ ck }} [{{ cobj.type }}]</option>
+                    {% if composed.expr != ck %}
+                      <option value="{{ ck }}">{{ ck }} [{{ cobj.type }}]</option>
+                    {% endif %}
                   {% endfor %}
                 </select>
               </div>

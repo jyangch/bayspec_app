@@ -1,0 +1,16 @@
+[
+    {
+        "Data": "unit1",
+        "Model": "cpl",
+        "Statistic": "pgstat",
+        "Value": 377.1994468365105,
+        "Bins": 105
+    },
+    {
+        "Data": "Total",
+        "Model": "Total",
+        "Statistic": "stat/dof",
+        "Value": "377.199/102",
+        "Bins": 105
+    }
+]
