@@ -403,6 +403,129 @@ GLOBAL_CSS = """
     }
     .bsp-empty .bsp-empty-icon { font-size: 1.8rem; margin-bottom: 0.35rem; }
     .bsp-empty .bsp-empty-title { color: var(--bsp-text); font-weight: 600; margin-bottom: 0.25rem; font-size: 1.02rem; }
+
+    /* Inference stepper */
+    .bsp-stepper {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.6rem;
+        margin: 0.4rem 0 1.4rem;
+    }
+    .bsp-step {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.7rem 0.95rem;
+        border-radius: 12px;
+        border: 1px solid var(--bsp-border);
+        background-color: var(--bsp-surface);
+        color: var(--bsp-text-muted);
+        transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+    }
+    .bsp-step.active {
+        border-color: var(--bsp-primary);
+        background:
+            linear-gradient(135deg, rgba(79, 70, 229, 0.10) 0%, rgba(6, 182, 212, 0.08) 100%),
+            #FFFFFF;
+        color: var(--bsp-text);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+    }
+    .bsp-step.done {
+        border-color: var(--bsp-success);
+        background-color: rgba(16, 185, 129, 0.06);
+        color: var(--bsp-text);
+    }
+    .bsp-step-num {
+        flex-shrink: 0;
+        width: 1.85rem;
+        height: 1.85rem;
+        border-radius: 999px;
+        background-color: var(--bsp-bg);
+        border: 1px solid var(--bsp-border);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.95rem;
+        color: var(--bsp-text-muted);
+    }
+    .bsp-step.active .bsp-step-num {
+        background: linear-gradient(135deg, var(--bsp-primary) 0%, var(--bsp-primary-soft) 100%);
+        color: #FFFFFF;
+        border-color: var(--bsp-primary);
+    }
+    .bsp-step.done .bsp-step-num {
+        background-color: var(--bsp-success);
+        color: #FFFFFF;
+        border-color: var(--bsp-success);
+    }
+    .bsp-step-body { display: flex; flex-direction: column; gap: 0.05rem; min-width: 0; }
+    .bsp-step-tag {
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--bsp-text-muted);
+    }
+    .bsp-step.active .bsp-step-tag, .bsp-step.done .bsp-step-tag {
+        color: var(--bsp-primary);
+    }
+    .bsp-step-title {
+        font-size: 0.95rem;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Pair badges in "Pairs detected" card */
+    .bsp-pair-row {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        padding: 0.55rem 0.75rem;
+        margin: 0.35rem 0;
+        background-color: var(--bsp-surface);
+        border: 1px solid var(--bsp-border-soft);
+        border-radius: 10px;
+    }
+    .bsp-data-badge, .bsp-model-badge {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.9rem;
+        font-weight: 600;
+        padding: 0.2rem 0.6rem;
+        border-radius: 7px;
+    }
+    .bsp-data-badge {
+        background-color: rgba(79, 70, 229, 0.10);
+        color: var(--bsp-primary);
+    }
+    .bsp-model-badge {
+        background-color: rgba(6, 182, 212, 0.10);
+        color: var(--bsp-accent);
+    }
+    .bsp-pair-arrow {
+        font-size: 1.1rem;
+        color: var(--bsp-text-muted);
+        font-weight: 700;
+    }
+
+    /* Small count pill, used by section heads */
+    .bsp-count-pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 1.7rem;
+        height: 1.7rem;
+        padding: 0 0.55rem;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--bsp-primary) 0%, var(--bsp-accent) 100%);
+        color: #FFFFFF;
+        font-weight: 700;
+        font-size: 0.85rem;
+        line-height: 1;
+        margin-left: 0.3rem;
+    }
 </style>
 """
 
