@@ -218,13 +218,26 @@ with st.sidebar:
 
 # ---- Auto-derive pairs from Data ↔ Model bindings -----------------------
 all_pairs: dict[str, list[str]] = {}
+incomplete_pairs: list[tuple[str, str, str]] = []  # (data_key, model_key, reason)
 for data_key in st.session_state.data:
     model_key = st.session_state.data_state.get(f'{data_key}_model')
-    if (
-        model_key is not None
-        and st.session_state.model_state.get(f'{model_key}_data') == data_key
-    ):
-        all_pairs[f'{data_key} 🔗 {model_key}'] = [data_key, model_key]
+    if model_key is None:
+        continue
+    if st.session_state.model_state.get(f'{model_key}_data') != data_key:
+        continue
+
+    data_obj = st.session_state.data.get(data_key)
+    model_obj = st.session_state.model.get(model_key)
+    n_units = len(getattr(data_obj, 'data', {})) if data_obj is not None else 0
+
+    if data_obj is None or n_units == 0:
+        incomplete_pairs.append((data_key, model_key, 'no DataUnits uploaded'))
+        continue
+    if model_obj is None:
+        incomplete_pairs.append((data_key, model_key, 'model expression not composed'))
+        continue
+
+    all_pairs[f'{data_key} 🔗 {model_key}'] = [data_key, model_key]
 
 pair_hash = tuple(sorted(all_pairs.keys()))
 ist = st.session_state.infer_state
@@ -260,13 +273,25 @@ if built:
 
 # ---- Step 1: Build inference -------------------------------------------
 if not all_pairs:
-    empty_card(
-        '🔗',
-        'No fitting pairs yet',
-        'Pairs are auto-derived from Data ↔ Model bindings. '
-        'Go to the <a href="/data">Data</a> or <a href="/model">Model</a> page '
-        'to bind a Data container to a Model, then return here.',
-    )
+    if incomplete_pairs:
+        body = (
+            'Some Data ↔ Model bindings exist but are not yet ready:'
+            '<ul style="text-align:left;margin:.4rem auto;max-width:32rem">'
+            + ''.join(
+                f'<li><code>{d}</code> ↔ <code>{m}</code> — {reason}</li>'
+                for d, m, reason in incomplete_pairs
+            )
+            + '</ul>'
+            'Finish setup on the <a href="/data">Data</a> or '
+            '<a href="/model">Model</a> page, then come back here.'
+        )
+    else:
+        body = (
+            'Pairs are auto-derived from Data ↔ Model bindings. '
+            'Go to the <a href="/data">Data</a> or <a href="/model">Model</a> page '
+            'to bind a Data container to a Model, then return here.'
+        )
+    empty_card('🔗', 'No fitting pairs yet', body)
     st.stop()
 
 if not built:
