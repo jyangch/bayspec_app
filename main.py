@@ -1067,7 +1067,7 @@ def _corner_plot_div(post) -> str:
     weights = np.ones(data.shape[0]) / data.shape[0]
     labels = post.clean_free_indexed_plabels  # no LaTeX
 
-    levels = 1.0 - np.exp(-0.5 * np.array([1, 2]) ** 2)
+    levels = (1.0 - np.exp(-0.5 * np.array([1, 2]) ** 2)).tolist()
     fig = corner_plotly(
         data,
         bins=30,
@@ -1107,8 +1107,8 @@ def _corner_plot_div(post) -> str:
     truth = post.par_best
     for yi in range(n):
         for xi in range(yi):
-            fig.add_vline(truth[xi], line_width=1, line_color='#FF0092', row=yi + 1, col=xi + 1)
-            fig.add_hline(truth[yi], line_width=1, line_color='#FF0092', row=yi + 1, col=xi + 1)
+            fig.add_vline(truth[xi], line_width=1, line_color='#FF0092', row=yi + 1, col=xi + 1)  # type: ignore[arg-type]
+            fig.add_hline(truth[yi], line_width=1, line_color='#FF0092', row=yi + 1, col=xi + 1)  # type: ignore[arg-type]
             fig.add_trace(
                 go.Scatter(
                     x=[truth[xi]],

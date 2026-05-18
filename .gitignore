@@ -53,9 +53,16 @@ dist/
 # Local-only docs and Claude Code project config
 docs/
 CLAUDE.md
+.claude/
 
 # User-uploaded session data (per-session FITS spectra etc.)
 uploads/
 
-# `playwright` test output
-.playwright-test/
+# Fitting run output (generated at runtime, not source code)
+output/
+
+# Playwright MCP screenshots and page snapshots
+.playwright-mcp/
+
+# Old Streamlit configuration (project migrated to FastAPI/HTMX)
+.streamlit/
