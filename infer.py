@@ -250,55 +250,136 @@ if not confirmed:
 assert infer is not None  # past the build/confirm gates above
 
 with st.expander('***Parameter links***', expanded=False):
-    key = 'infer_nlink'
-    set_ini(key, 0)
-    nlink = st.number_input(
-        'Number of linking groups',
-        min_value=0,
-        value=get_val(key),
-        key=key,
-        help='Tie multiple free parameters together so they share a value during fitting.',
-    )
+    par_options = [f'par#{p}' for p in list(infer.par.keys())]
+
+    head_col, action_col = st.columns([6, 2])
+    with head_col:
+        key = 'infer_nlink'
+        set_ini(key, 0)
+        nlink = st.number_input(
+            'Number of linking groups',
+            min_value=0,
+            value=get_val(key),
+            key=key,
+            help='Tie multiple free parameters together so they share a value during fitting.',
+        )
+    with action_col:
+        st.write('')
+        st.write('')
+        if st.button(
+            '🔓  Unlink all',
+            use_container_width=True,
+            disabled=nlink == 0,
+            help='Drop every link group; all currently-linked parameters become independent.',
+        ):
+            for idx in range(nlink):
+                lkey = f'infer_link_{idx}'
+                old = st.session_state.infer_state.get(lkey, [])
+                if len(old) > 1:
+                    infer.unlink([int(pi[4:]) for pi in old])
+                st.session_state.infer_state.pop(lkey, None)
+                st.session_state.pop(lkey, None)
+            st.session_state.infer_state['infer_nlink'] = 0
+            st.session_state.pop('infer_nlink', None)
+            st.rerun()
 
     for idx in range(nlink):
-        key = f'infer_link_{idx}'
-        set_ini(key, [])
-        options = [f'par#{p}' for p in list(infer.par.keys())]
-        default = [p for p in get_val(key) if p in options]
-        pids = st.multiselect(
-            f'Link group {idx + 1}',
-            options=options,
-            default=default,
-            key=key,
-        )
-        if len(pids) > 1:
-            infer.link([int(pi[4:]) for pi in pids])
+        link_col, rm_col = st.columns([7, 1])
+        with link_col:
+            key = f'infer_link_{idx}'
+            set_ini(key, [])
+            default = [p for p in get_val(key) if p in par_options]
+            pids = st.multiselect(
+                f'Link group {idx + 1}',
+                options=par_options,
+                default=default,
+                key=key,
+            )
+            if len(pids) > 1:
+                infer.link([int(pi[4:]) for pi in pids])
+        with rm_col:
+            st.write('')
+            st.write('')
+            if st.button(
+                '✕',
+                key=f'infer_link_remove_{idx}',
+                help='Remove this link group',
+                use_container_width=True,
+            ):
+                # Unlink this group, then shift later groups down by 1.
+                old = st.session_state.infer_state.get(f'infer_link_{idx}', [])
+                if len(old) > 1:
+                    infer.unlink([int(pi[4:]) for pi in old])
+                for j in range(idx, nlink - 1):
+                    nxt = st.session_state.infer_state.get(f'infer_link_{j + 1}', [])
+                    st.session_state.infer_state[f'infer_link_{j}'] = nxt
+                    st.session_state.pop(f'infer_link_{j}', None)
+                st.session_state.infer_state.pop(f'infer_link_{nlink - 1}', None)
+                st.session_state.pop(f'infer_link_{nlink - 1}', None)
+                st.session_state.infer_state['infer_nlink'] = nlink - 1
+                st.session_state.pop('infer_nlink', None)
+                st.rerun()
 
     par_df = pd.DataFrame(infer.notable_par_info.data_dict)
     st.dataframe(par_df, use_container_width=True, hide_index=True)
 
 with st.expander('***Manual fitting***', expanded=True):
-    free_par_df = pd.DataFrame(infer.free_par_info.data_dict)
-    key = 'manual_free_par'
-    set_ini(key, free_par_df)
-    # If the parameter set has changed (e.g. via a link group edit), reset.
+    # Build the editable table from all_params so we can expose a per-row
+    # Frozen toggle next to Value. Hide frozen-data rows (data-side priors
+    # only matter when free).
+    raw_rows = [
+        {
+            'par#': r['par#'],
+            'Class': r['Class'],
+            'Expression': r['Expression'],
+            'Component': r['Component'],
+            'Parameter': r['Parameter'],
+            'Value': float(r['Value']),
+            'Frozen': bool(r['Frozen']),
+            'Prior': r['Prior'],
+        }
+        for r in infer.all_params
+        if not (r['Frozen'] and r['Class'] == 'data')
+    ]
+    fresh_df = pd.DataFrame(raw_rows)
+
+    key = 'manual_par'
+    set_ini(key, fresh_df)
     cached = st.session_state.infer_state[key]
-    if (
-        not isinstance(cached, pd.DataFrame)
-        or list(cached.columns) != list(free_par_df.columns)
-        or len(cached) != len(free_par_df)
-    ):
-        st.session_state.infer_state[key] = free_par_df
-    free_par_df = st.data_editor(
+    pids_match = (
+        isinstance(cached, pd.DataFrame)
+        and list(cached.columns) == list(fresh_df.columns)
+        and len(cached) == len(fresh_df)
+        and list(cached['par#']) == list(fresh_df['par#'])
+    )
+    if not pids_match:
+        st.session_state.infer_state[key] = fresh_df
+
+    par_df = st.data_editor(
         get_data(key),
         use_container_width=True,
         num_rows='fixed',
         disabled=['par#', 'Class', 'Expression', 'Component', 'Parameter', 'Prior'],
         hide_index=True,
         key=key,
+        column_config={
+            'Value': st.column_config.NumberColumn(format='%.6g'),
+            'Frozen': st.column_config.CheckboxColumn(
+                help='Hold this parameter fixed during fitting / inference.'
+            ),
+        },
     )
-    now_par = [row['Value'] for _, row in free_par_df.to_dict('index').items()]
-    infer.at_par(now_par)
+
+    for _, row in par_df.to_dict('index').items():
+        par_obj = infer.par[row['par#']]
+        try:
+            par_obj.val = float(row['Value'])
+        except (ValueError, TypeError):
+            st.error(
+                f'Invalid value for {row["Parameter"]}: {row["Value"]!r}',
+                icon='🚨',
+            )
+        par_obj.frozen = bool(row['Frozen'])
 
     stat_col, _, plot_col = st.columns([4.9, 0.2, 4.9])
 

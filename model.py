@@ -391,11 +391,21 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                                     continue
                                 cfg_obj.val = new_val
 
-                            par_df = pd.DataFrame(component.par_info.data_dict)
-                            plabels_sig = ','.join(component.par_info.data_dict['Parameter'])
+                            par_rows = [
+                                {
+                                    'par#': r['par#'],
+                                    'Component': r['Component'],
+                                    'Parameter': r['Parameter'],
+                                    'Value': float(r['Value']),
+                                    'Frozen': bool(r['Frozen']),
+                                    'Prior': r['Prior'],
+                                }
+                                for r in component.all_params
+                            ]
+                            par_df = pd.DataFrame(par_rows)
+                            plabels_sig = ','.join(p['Parameter'] for p in par_rows)
                             key = f'{model_key}_{component_key}_par|{plabels_sig}'
-                            ini = par_df
-                            set_ini(key, ini)
+                            set_ini(key, par_df)
                             par_df = st.data_editor(
                                 get_data(key),
                                 use_container_width=True,
@@ -403,24 +413,45 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                                 disabled=['par#', 'Component', 'Parameter'],
                                 hide_index=True,
                                 key=key,
+                                column_config={
+                                    'Value': st.column_config.NumberColumn(format='%.6g'),
+                                    'Frozen': st.column_config.CheckboxColumn(
+                                        help='Hold this parameter fixed during fitting / inference.'
+                                    ),
+                                },
                             )
 
                             for _, row in par_df.to_dict('index').items():
                                 par_obj = component.par[int(row['par#'])]
-                                par_obj.val = row['Value']
+                                try:
+                                    par_obj.val = float(row['Value'])
+                                except (ValueError, TypeError):
+                                    st.error(
+                                        f'Invalid value for {row["Parameter"]}: {row["Value"]!r}',
+                                        icon='🚨',
+                                    )
 
-                                prior_str = str(row['Prior']).strip()
-                                if prior_str == 'frozen':
-                                    par_obj.frozen = True
-                                else:
-                                    par_obj.frozen = False
+                                par_obj.frozen = bool(row['Frozen'])
+
+                                if not par_obj.frozen:
+                                    prior_str = str(row['Prior']).strip()
                                     prior_info = [s.strip() for s in re.split(r'[(,)]', prior_str)]
-                                    prior = prior_info[0]
-                                    args = [float(s) for s in prior_info[1:-1]]
-                                    if prior not in all_priors:
-                                        st.error(f'{prior} is not one of priors!', icon='🚨')
-                                    else:
-                                        par_obj.prior = all_priors[prior](*args)
+                                    prior_name = prior_info[0]
+                                    args_str = prior_info[1:-1]
+                                    if prior_name in all_priors and args_str:
+                                        try:
+                                            args = [float(s) for s in args_str]
+                                            par_obj.prior = all_priors[prior_name](*args)
+                                        except (ValueError, TypeError):
+                                            st.error(
+                                                f'Invalid prior args for {row["Parameter"]}: {prior_str!r}',
+                                                icon='🚨',
+                                            )
+                                    elif prior_name not in all_priors:
+                                        st.error(
+                                            f'{prior_name!r} is not a known prior.',
+                                            icon='🚨',
+                                        )
 
                     st.session_state.model_component[model_key][expr] = component
 
