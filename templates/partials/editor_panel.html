@@ -23,30 +23,36 @@
     {% endif %}
   </div>
 
-  <div class="card" style="margin-top:1rem">
-    <h3 style="margin-top:0;margin-bottom:.65rem">How to write a custom model</h3>
-    <ol style="padding-left:1.3rem;margin:0;font-size:.9rem;color:var(--text-secondary)">
+  <details class="card" style="margin-top:1rem">
+    <summary class="howto-summary">How to write a custom model</summary>
+    <ol style="padding-left:1.3rem;margin:.65rem 0 0;font-size:.82rem;color:var(--text-secondary)">
       <li style="margin-bottom:.45rem">
-        Subclass <code>Additive</code> or <code>Multiplicative</code> from
-        <code>bayspec.model.model</code>.
+        Subclass <code>Model</code> from <code>bayspec.model.model</code> and call
+        <code>super().__init__()</code>.
       </li>
       <li style="margin-bottom:.45rem">
-        Set <code>self.expr</code> (model name), <code>self.comment</code> (description),
-        <code>self.config</code> (fixed settings as <code>OrderedDict</code>), and
-        <code>self.params</code> (free parameters as <code>OrderedDict</code> of
-        <code>Par(value, prior)</code>).
+        In <code>__init__</code>, set <code>self.expr</code> (the key used in compose
+        expressions), <code>self.type</code> (<code>'add'</code> for additive,
+        <code>'mul'</code> for multiplicative, <code>'math'</code> for pure-math),
+        and <code>self.comment</code>. Populate <code>self.config</code> with
+        <code>Cfg(value)</code> entries for fixed settings (e.g. redshift) and
+        <code>self.params</code> with <code>Par(value, prior)</code> entries for
+        free parameters — both as <code>OrderedDict</code>.
       </li>
       <li style="margin-bottom:.45rem">
-        Implement <code>func(self, E, T=None, O=None)</code> — return photon flux
-        array evaluated at energy midpoints <code>E</code> (keV).
-        <code>T</code> is time (seconds) for time-dependent models; <code>O</code>
-        carries optional extra context.
+        Implement <code>func(self, E, T=None, O=None)</code>.
+        <code>E</code> is a 1-D array of energy bin midpoints in keV.
+        Return a spectrum array of the same length: photon flux
+        N(E) [photons/cm²/s/keV] for <code>add</code> type, or a
+        dimensionless multiplier F(E) for <code>mul</code>/<code>math</code> type.
+        <code>T</code> is a time array (seconds) only needed for time-resolved models;
+        <code>O</code> is the nested model passed by a convolution operator.
       </li>
       <li>
         Click <strong>Register model</strong>. The class is available immediately
         in the Model page's <em>user</em> library dropdown.
       </li>
     </ol>
-  </div>
+  </details>
 
 </div>

@@ -192,11 +192,14 @@ def _counts_plot_div(unit) -> str:
         xaxis=dict(title='Energy (keV)', type='log', showgrid=True, gridcolor='#F1F5F9'),
         yaxis=dict(title='Counts s⁻¹ keV⁻¹', type='log', showgrid=True, gridcolor='#F1F5F9'),
         template='simple_white',
-        margin=dict(l=65, r=160, t=20, b=50),
+        margin=dict(l=65, r=20, t=20, b=50),
         height=420,
+        width=None,
         showlegend=True,
         legend=dict(
-            x=1.02, y=1.0, xanchor='left', yanchor='top', bgcolor='rgba(0,0,0,0)', borderwidth=0
+            orientation='h',
+            x=0.0, y=1.02, xanchor='left', yanchor='bottom',
+            bgcolor='rgba(0,0,0,0)', borderwidth=0
         ),
         font=dict(family='Inter, system-ui, sans-serif', size=12, color='#0F172A'),
         paper_bgcolor='#FFFFFF',
@@ -229,11 +232,6 @@ async def model_page(request: Request):
 @app.get('/infer', response_class=HTMLResponse)
 async def infer_page(request: Request):
     return _render('infer.html', request)
-
-
-@app.get('/editor', response_class=HTMLResponse)
-async def editor_page(request: Request):
-    return _render('editor.html', request)
 
 
 # ── Data helpers ───────────────────────────────────────────────────────────────
@@ -929,9 +927,19 @@ def _derived_pairs(s: dict) -> list[dict]:
 def _posterior_param_html(post) -> str:
     """Parameter CI table for the Parameters tab — all informative columns."""
 
-    def _fmt(v):
+    _str_cols = {'Expression', 'Component', 'Class'}
+    _int_cols = {'par#'}
+
+    def _fmt(k, v):
         if v is None:
             return '—'
+        if k in _str_cols:
+            return str(v)
+        if k in _int_cols:
+            try:
+                return str(int(float(v)))
+            except (TypeError, ValueError):
+                return str(v)
         try:
             return format(float(v), '.3f')
         except (TypeError, ValueError):
@@ -945,11 +953,9 @@ def _posterior_param_html(post) -> str:
     n_rows = len(fp[headers[0]])
 
     def cell(k, val):
-        if k == 'Parameter':
-            return f"<td class='param-name'>{val}</td>"
         if k == '1sigma CI':
-            return f'<td><code>{val}</code></td>'
-        return f'<td>{_fmt(val)}</td>'
+            return f"<td class='param-name'><code>{val}</code></td>"
+        return f"<td class='param-name'>{_fmt(k, val)}</td>"
 
     rows_html = ''.join(
         '<tr>' + ''.join(cell(k, fp[k][i]) for k in headers) + '</tr>' for i in range(n_rows)
@@ -978,10 +984,18 @@ def _posterior_stat_ic_html(post) -> str:
         except (TypeError, ValueError):
             return str(v)
 
+    def _fmt_int(v):
+        if v is None:
+            return '—'
+        try:
+            return str(int(float(v)))
+        except (TypeError, ValueError):
+            return str(v)
+
     si = post.stat_info.data_dict
     stat_rows = ''.join(
-        f"<tr><td class='param-name'>{d}</td><td>{m}</td>"
-        f'<td>{stat}</td><td>{_fmt(v)}</td><td>{b}</td></tr>'
+        f"<tr><td class='param-name'>{d}</td><td class='param-name'>{m}</td>"
+        f"<td class='param-name'>{stat}</td><td class='param-name'>{_fmt(v)}</td><td class='param-name'>{_fmt_int(b)}</td></tr>"
         for d, m, stat, v, b in zip(
             si['Data'], si['Model'], si['Statistic'], si['Value'], si['Bins'], strict=False
         )
@@ -998,7 +1012,7 @@ def _posterior_stat_ic_html(post) -> str:
 
     ic = post.IC_info.data_dict
     ic_rows = ''.join(
-        f"<tr><td class='param-name'>{k}</td><td>{_fmt(ic[k][0])}</td></tr>" for k in ic
+        f"<tr><td class='param-name'>{k}</td><td class='param-name'>{_fmt(ic[k][0])}</td></tr>" for k in ic
     )
     ic_html = (
         '<div>'
@@ -1748,7 +1762,7 @@ def _render_editor_panel(request: Request):
 # ── Editor API routes ──────────────────────────────────────────────────────────
 
 
-@app.post('/editor/register', response_class=HTMLResponse)
+@app.post('/model/user-library/register', response_class=HTMLResponse)
 async def register_model(request: Request, code: str = Form(...)):
     _, s, _ = _session(request)
     est = s['editor_state']

@@ -9,11 +9,15 @@ _sessions: dict[str, dict[str, Any]] = {}
 def _new() -> dict[str, Any]:
     return {
         # {data_key: bayspec.data.data.Data}  — Data container holds {unit_key: DataUnit}
+        # {data_key: bayspec.data.data.Data}  -- Data container holds {unit_key: DataUnit}
         'data': {},
         # {data_key: {"model_binding": str|None, "units": {unit_key: {form fields, error}}}}
         'data_state': {},
+        # {model_key: bayspec.model.model.Model}  -- composed/leaf model objects
         'model': {},
+        # {component_key: bayspec.model.model.Model}  -- individual leaf components (pl, cpl, etc.)
         'model_component': {},
+        # {model_key: {"expr": str, "components": [component_key, ...], error fields, ...}}
         'model_state': {},
         'infer': None,
         'infer_state': {

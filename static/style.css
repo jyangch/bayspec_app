@@ -263,13 +263,17 @@ h4 {
 /* Two-column unit body: left = info table, right = plot */
 .unit-body-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 1.2rem;
+  align-items: start;
 }
 .unit-body-right {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  min-width: 0;
+  overflow: visible;
+  width: 100%;
 }
 
 /* ===== Tables ===== */
@@ -515,7 +519,7 @@ input:focus, select:focus, textarea:focus {
 .status-label.ok { color: var(--success); }
 .status-label.error { color: var(--danger); }
 
-.unit-plot { margin-top: .6rem; border-radius: 8px; overflow: hidden; }
+.unit-plot { margin-top: .6rem; border-radius: 8px; overflow: visible; width: 100%; }
 .unit-plot-controls { display: flex; gap: .5rem; }
 
 /* ===== Model page ===== */
@@ -1313,6 +1317,46 @@ details.infer-collapse > .infer-collapse-body { margin-top: 1rem; }
 #code-editor { display: block; }
 #editor-panel { display: flex; flex-direction: column; gap: 1rem; }
 .custom-model-badges { display: flex; flex-wrap: wrap; gap: .4rem; }
+.howto-summary { cursor: pointer; font-weight: 600; font-size: .95rem; list-style: none; display: flex; align-items: center; gap: .4rem; margin: 0; }
+.howto-summary::-webkit-details-marker { display: none; }
+summary.howto-summary { list-style: none; }
+summary.howto-summary::marker { display: none; content: ''; }
+.howto-summary::before { content: '▸'; color: var(--text-muted); font-size: .9rem; transition: transform .2s; display: inline-block; }
+details[open] .howto-summary::before { transform: rotate(90deg); }
+
+/* ===== User Model Library (collapsible section on Model page) ===== */
+.user-library-section {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  margin: 1rem 0 1.5rem;
+  overflow: hidden;
+}
+.user-library-section > summary {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .7rem 1rem;
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+  background: var(--surface);
+  transition: background-color .15s ease;
+}
+.user-library-section > summary::-webkit-details-marker { display: none; }
+.user-library-section > summary::before {
+  content: '▸';
+  color: var(--text-muted);
+  transition: transform .15s ease;
+  font-size: .9rem;
+  flex-shrink: 0;
+}
+.user-library-section[open] > summary::before { transform: rotate(90deg); }
+.user-library-section > summary:hover { background: rgba(79,70,229,.04); }
+.user-library-title { font-weight: 600; color: var(--text-primary); }
+.user-library-count { margin-left: auto; }
+.user-library-section[open] > summary { border-bottom: 1px solid var(--border); }
+.user-library-body { padding: 1rem; }
 
 /* ===== Page header ===== */
 .page-header {

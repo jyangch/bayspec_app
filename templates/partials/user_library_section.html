@@ -1,8 +1,3 @@
-{% extends "base.html" %}
-{% set active_page = "editor" %}
-{% block title %}BaySpec — Model Editor{% endblock %}
-
-{% block head %}
 <!-- Import map: pin every @codemirror/* and @lezer/* to a SINGLE shared instance.
      CM6 does `instanceof @codemirror/state` checks under the hood; without
      deduping, two copies of @codemirror/state silently break the editor. -->
@@ -23,78 +18,93 @@
   }
 }
 </script>
+
 <!-- Default template code (read by the module script below) -->
 <script id="default-code" type="text/plain">
 from collections import OrderedDict
 
 import numpy as np
 
-from bayspec.model.model import Additive
-from bayspec.util.param import Par
+from bayspec.model.model import Model
+from bayspec.util.param import Cfg, Par
 from bayspec.util.prior import unif
 
 
-class mypl(Additive):
-    """A simple power-law example model."""
+class mypl(Model):
 
     def __init__(self):
+        super().__init__()
         self.expr = 'mypl'
-        self.comment = 'example custom power law'
+        self.type = 'add'  # 'add' | 'mul' | 'math'
+        self.comment = 'user-defined model'
+
         self.config = OrderedDict()
+        self.config['redshift'] = Cfg(0)
+
         self.params = OrderedDict()
         self.params['norm'] = Par(1.0, unif(-5, 5))
         self.params['index'] = Par(-2.0, unif(-5, 0))
 
     def func(self, E, T=None, O=None):
-        norm = 10 ** self.params['norm'].value
+        redshift = self.config['redshift'].value
+        norm = self.params['norm'].value
         index = self.params['index'].value
-        return norm * np.asarray(E) ** index
+
+        E = np.asarray(E)
+        scalar = E.ndim == 0
+        if scalar:
+            E = E[np.newaxis]
+
+        zi = 1 + redshift
+        E = E * zi
+
+        phtspec = 10 ** norm * E ** index
+
+        return phtspec[0] if scalar else phtspec
 </script>
-{% endblock %}
 
-{% block content %}
-<div class="page-header">
-  <h1>Model Editor</h1>
-  <p class="page-subtitle">
-    Write a custom spectral model class in Python and register it for immediate use
-    on the Model page. Your model is executed in-session — no restart required.
-  </p>
-</div>
+<details class="user-library-section">
+  <summary class="user-library-summary">
+    <span class="user-library-title">User Model Library</span>
+    <span class="user-library-count caption">{{ s.custom_models | length }} registered</span>
+  </summary>
 
-<div class="editor-layout">
+  <div class="user-library-body">
+    <div class="editor-layout">
 
-  <!-- ── Left: code editor + submit ── -->
-  <div class="editor-left">
-    <div class="card editor-card">
-      <div class="editor-header">
-        <span class="editor-label">Python</span>
-        <span class="caption">Subclass <code>Additive</code> or <code>Multiplicative</code> from <code>bayspec.model.model</code></span>
+      <!-- ── Left: code editor + submit ── -->
+      <div class="editor-left">
+        <div class="card editor-card">
+          <div class="editor-header">
+            <span class="editor-label">Python editor</span>
+          </div>
+          <div id="code-editor"></div>
+        </div>
+
+        <form id="register-form"
+              hx-post="/model/user-library/register"
+              hx-target="#editor-panel"
+              hx-swap="outerHTML"
+              hx-indicator="#reg-spinner"
+              style="margin-top:.75rem;display:flex;align-items:center;gap:.75rem">
+          <input type="hidden" id="code-input" name="code" />
+          <button type="submit"
+                  class="btn btn-primary"
+                  onclick="document.getElementById('code-input').value = window.__cm_view ? window.__cm_view.state.doc.toString() : ''">
+            <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
+            Register model
+            <span id="reg-spinner" class="htmx-indicator"><span class="spinner"></span></span>
+          </button>
+          <span class="caption">The class will be available in any Model card's <em>user</em> library dropdown immediately.</span>
+        </form>
       </div>
-      <div id="code-editor"></div>
+
+      <!-- ── Right: status + model list + usage ── -->
+      {% include "partials/editor_panel.html" %}
+
     </div>
-
-    <form id="register-form"
-          hx-post="/editor/register"
-          hx-target="#editor-panel"
-          hx-swap="outerHTML"
-          hx-indicator="#reg-spinner"
-          style="margin-top:.75rem;display:flex;align-items:center;gap:.75rem">
-      <input type="hidden" id="code-input" name="code" />
-      <button type="submit"
-              class="btn btn-primary"
-              onclick="document.getElementById('code-input').value = window.__cm_view ? window.__cm_view.state.doc.toString() : ''">
-        <svg viewBox="0 0 20 20" width="16" height="16" fill="currentColor" style="flex-shrink:0"><path fill-rule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clip-rule="evenodd"/></svg>
-        Register model
-        <span id="reg-spinner" class="htmx-indicator"><span class="spinner"></span></span>
-      </button>
-      <span class="caption">The class will be available in the Model page component dropdown immediately.</span>
-    </form>
   </div>
-
-  <!-- ── Right: status + model list + usage ── -->
-  {% include "partials/editor_panel.html" %}
-
-</div>
+</details>
 
 <script type="module">
 import {
@@ -180,5 +190,12 @@ const view = new EditorView({
 });
 
 window.__cm_view = view;
+
+// CM6 measures gutters lazily; trigger remeasure on first open.
+const section = document.querySelector('.user-library-section');
+if (section) {
+  section.addEventListener('toggle', () => {
+    if (section.open) view.requestMeasure();
+  }, { once: true });
+}
 </script>
-{% endblock %}

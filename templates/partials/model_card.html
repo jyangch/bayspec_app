@@ -91,6 +91,7 @@
       Add component
     </button>
   </form>
+
   <script>
     function onLibraryChange_{{ mkey | replace('-','_') | replace('.','_') }}(sel) {
       const lib = sel.value;
@@ -108,8 +109,8 @@
 
   <!-- ── Component blocks ── -->
   {% for ckey, comp in components.items() %}
-  {% set cfg_d = comp.cfg_info.data_dict %}
-  {% set par_d = comp.par_info.data_dict %}
+  {% set cfg_d = comp.cfg_info.data_dict if comp.config else {"cfg#": [], "Parameter": [], "Value": []} %}
+  {% set par_d = comp.par_info.data_dict if comp.params else {"par#": [], "Parameter": [], "Value": [], "Prior": []} %}
   {% set ctype = comp.type %}
 
   <details class="comp-block">
@@ -303,8 +304,8 @@
     </summary>
 
     {% if composed %}
-      {% set ccfg = composed.cfg_info.data_dict %}
-      {% set cpar = composed.par_info.data_dict %}
+      {% set ccfg = composed.cfg_info.data_dict if composed.config else {"Component": [], "Parameter": [], "Value": [], "cfg#": []} %}
+      {% set cpar = composed.par_info.data_dict if composed.params else {"Component": [], "Parameter": [], "Value": [], "Prior": [], "par#": []} %}
       <div class="comp-body">
         {% if composed.comment %}
           <p class="caption" style="margin:0 0 .6rem;white-space:pre-line">{{ composed.comment }}</p>
@@ -320,7 +321,7 @@
                   <tr>
                     <td class="param-name">{{ cmp }}</td>
                     <td class="param-name">{{ param }}</td>
-                    <td>{{ val }}</td>
+                    <td class="param-name">{{ val }}</td>
                   </tr>
                   {% endfor %}
                 </tbody>
@@ -336,8 +337,8 @@
                   <tr>
                     <td class="param-name">{{ cmp }}</td>
                     <td class="param-name">{{ param }}</td>
-                    <td>{{ val }}</td>
-                    <td><code>{{ prior }}</code></td>
+                    <td class="param-name">{{ val }}</td>
+                    <td class="param-name"><code>{{ prior }}</code></td>
                   </tr>
                   {% endfor %}
                 </tbody>

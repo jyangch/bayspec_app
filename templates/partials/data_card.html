@@ -81,8 +81,8 @@
                   {% set idict = du.info.data_dict %}
                   {% for prop, val in zip(idict["Property"], idict[unit_key]) %}
                   <tr>
-                    <td><code>{{ prop }}</code></td>
-                    <td>{{ val if val is not none else "—" }}</td>
+                    <td><code class="param-name">{{ prop }}</code></td>
+                    <td class="param-name">{{ val if val is not none else "—" }}</td>
                   </tr>
                   {% endfor %}
                 </tbody>

@@ -198,7 +198,7 @@
           <thead><tr><th>cfg#</th><th>Configuration</th><th>Value</th></tr></thead>
           <tbody>
             {% for i, p, v in zip(cfg_d["cfg#"], cfg_d["Parameter"], cfg_d["Value"]) %}
-            <tr><td class="param-name">{{ i }}</td><td class="param-name">{{ p }}</td><td>{{ v }}</td></tr>
+            <tr><td class="param-name">{{ i }}</td><td class="param-name">{{ p }}</td><td class="param-name">{{ v }}</td></tr>
             {% endfor %}
           </tbody>
         </table>
@@ -212,7 +212,7 @@
               {% for i, e, c, p, v, pr in zip(nd["par#"], nd["Expression"], nd["Component"], nd["Parameter"], nd["Value"], nd["Prior"]) %}
               <tr><td class="param-name">{{ i }}</td><td class="param-name">{{ e }}</td>
                   <td class="param-name">{{ c }}</td><td class="param-name">{{ p }}</td>
-                  <td>{{ v }}</td><td><code>{{ pr }}</code></td></tr>
+                  <td class="param-name">{{ v }}</td><td class="param-name"><code>{{ pr }}</code></td></tr>
               {% endfor %}
             </tbody>
           </table>
@@ -287,9 +287,9 @@
               <tr>
                 <td class="param-name">{{ idx }}</td>
                 <td class="param-name">{{ param }}</td>
-                <td><input type="text" name="par_val_{{ idx }}"
+                <td><input type="number" step="any" name="par_val_{{ idx }}"
                            value="{{ val }}" class="param-input" style="max-width:140px" /></td>
-                <td><code style="font-size:.82rem">{{ prior }}</code></td>
+                <td><code class="param-name" style="font-size:.82rem">{{ prior }}</code></td>
               </tr>
               {% endfor %}
             </tbody>

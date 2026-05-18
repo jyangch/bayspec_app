@@ -61,8 +61,7 @@ uploads/
 # Fitting run output (generated at runtime, not source code)
 output/
 
-# Playwright MCP screenshots and page snapshots
+# Playwright test artifacts and cache
 .playwright-mcp/
-
-# Old Streamlit configuration (project migrated to FastAPI/HTMX)
-.streamlit/
+.ruff_cache/
+.sisyphus/
