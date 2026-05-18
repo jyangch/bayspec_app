@@ -103,7 +103,8 @@ def _binding_for(dkey: str) -> str | None:
 
 
 total_units = sum(
-    len(st.session_state.data.get(k, Data())) for k in st.session_state.data
+    len(getattr(st.session_state.data.get(k, Data()), "data", {}))
+    for k in st.session_state.data
 )
 bound_count = sum(
     1 for k in st.session_state.data if _binding_for(k) is not None
