@@ -121,6 +121,11 @@ stat_c.metric(
 )
 st.write("")
 
+# Overview placeholder. Data containers are reset at the top of every
+# rerun and only repopulated as the per-unit loops run below; we render
+# the overlay plot at the bottom of the script and slot it back up here.
+_overview_slot = st.empty()
+
 for di, data_key in enumerate(st.session_state.data.keys()):
     bound_model = _binding_for(data_key)
     # The Data container is re-instantiated at the top of each rerun and
@@ -571,3 +576,67 @@ for di, data_key in enumerate(st.session_state.data.keys()):
                                     use_container_width=True,
                                     key=key,
                                 )
+
+
+# ---- Overview: every configured DataUnit overlaid on a single chart ----
+def _overview_units() -> list[tuple[str, DataUnit]]:
+    """Pull every complete DataUnit from session_state, keyed by ``data·unit``."""
+    out: list[tuple[str, DataUnit]] = []
+    for dk, dc in st.session_state.data.items():
+        if dc is None:
+            continue
+        for uk, du in getattr(dc, "data", {}).items():
+            if du is not None and getattr(du, "completeness", False):
+                out.append((f"{dk} · {uk}", du))
+    return out
+
+
+_units = _overview_units()
+if _units:
+    import plotly.graph_objects as go
+
+    # A small palette that loops if there are more than six units.
+    palette = ["#4F46E5", "#06B6D4", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"]
+    fig = go.Figure()
+    for i, (label, du) in enumerate(_units):
+        x = du.rsp_chbin_mean.astype(float)
+        half = du.rsp_chbin_width.astype(float) / 2
+        y = du.src_ctsspec.astype(float)
+        y_e = du.src_ctsspec_error.astype(float)
+        color = palette[i % len(palette)]
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=y,
+                mode="markers",
+                name=label,
+                error_x=dict(type="data", array=half, arrayminus=half,
+                             thickness=1.0, width=0),
+                error_y=dict(type="data", array=y_e, thickness=1.0, width=0),
+                marker=dict(symbol="circle", size=3, color=color),
+            )
+        )
+    fig.update_layout(
+        xaxis=dict(title="Energy (keV)", type="log", showgrid=True,
+                   gridcolor="#F1F5F9"),
+        yaxis=dict(title="Counts s⁻¹ keV⁻¹", type="log", showgrid=True,
+                   gridcolor="#F1F5F9"),
+        template="simple_white",
+        margin=dict(l=65, r=20, t=20, b=50),
+        height=420,
+        showlegend=True,
+        legend=dict(orientation="h", yanchor="bottom", y=1.02,
+                    xanchor="right", x=1),
+    )
+
+    with _overview_slot.container(), st.expander(
+        f"📊  Overview · {len(_units)} unit"
+        f"{'s' if len(_units) != 1 else ''} overlaid",
+        expanded=False,
+    ):
+        st.plotly_chart(
+            fig,
+            theme="streamlit",
+            use_container_width=True,
+            key="data_overview_fig",
+        )

@@ -43,13 +43,25 @@ def _fig_html_bytes(fig) -> bytes:
     return pio.to_html(fig, include_plotlyjs='cdn', full_html=True).encode('utf-8')  # type: ignore[arg-type]
 
 
-def _fig_image_bytes(fig, fmt: str) -> bytes | None:
-    """Image bytes via Kaleido; returns ``None`` when Kaleido is missing or
-    the format is not supported. ``fmt`` is one of ``'png'`` or ``'svg'``."""
+@st.cache_data(show_spinner=False, max_entries=64)
+def _fig_image_bytes_cached(fig_json: str, fmt: str) -> bytes | None:
+    """Cache key is the JSON-serialised figure, so identical figures across
+    reruns hit the cache and skip the ~200ms Kaleido render."""
     try:
+        fig = pio.from_json(fig_json)
         if fmt == 'png':
             return pio.to_image(fig, format='png', scale=2)
         return pio.to_image(fig, format=fmt)
+    except Exception:
+        return None
+
+
+def _fig_image_bytes(fig, fmt: str) -> bytes | None:
+    """Image bytes via Kaleido (cached). Returns ``None`` when Kaleido is
+    missing or the format is not supported. ``fmt`` is ``'png'`` or
+    ``'svg'``."""
+    try:
+        return _fig_image_bytes_cached(fig.to_json(), fmt)
     except Exception:
         return None
 
