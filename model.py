@@ -143,7 +143,15 @@ st.write('')
 
 for mi, model_key in enumerate(st.session_state.model.keys()):
     bound_data = _data_for(model_key)
+    # model_component is cleared at the top of each rerun and repopulated
+    # below; read the user-configured component count for the label.
+    n_comps = int(
+        st.session_state.model_state.get(f'{model_key}_ncomponent', 1) or 1
+    )
+    comp_tag = f"{n_comps} component{'s' if n_comps != 1 else ''}"
+
     if bound_data:
+        expander_title = f'**{model_key}** · {comp_tag} · ↔ **{bound_data}**'
         badge_html = (
             f'<div class="bsp-pair-row" style="margin:0 0 .85rem">'
             f'<span class="bsp-data-badge">{bound_data}</span>'
@@ -154,6 +162,7 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
             f'</div>'
         )
     else:
+        expander_title = f'**{model_key}** · {comp_tag} · — unbound —'
         badge_html = (
             f'<div class="bsp-pair-row" style="margin:0 0 .85rem">'
             f'<span style="font-family:JetBrains Mono,monospace;font-size:.9rem;'
@@ -165,7 +174,7 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
             f'</div>'
         )
 
-    with st.expander(f'***Configure the {model_key}***', expanded=False):
+    with st.expander(expander_title, expanded=False):
         st.markdown(badge_html, unsafe_allow_html=True)
         ncomponent_col, _, fit_col = st.columns([4.9, 0.2, 4.9])
 
@@ -530,7 +539,10 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                             st.info(f'{component.expr} [{component.type}]')
                             st.info(component.comment)
 
-                    with st.popover('📈  Display model spectra', use_container_width=True):
+                    with st.expander(
+                        '📈  Component spectrum preview',
+                        expanded=False,
+                    ):
                         if component is None:
                             if library == 'user':
                                 st.warning(
@@ -543,57 +555,50 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                             if component.type in ['mul', 'math']:
                                 options = ['NoU']
                             elif component.type == 'add':
-                                options = ['Fv', 'NE', 'vFv']
+                                options = ['NE', 'Fv', 'vFv']
                             else:
                                 options = []
 
+                            default_style = options[0] if options else None
+
                             key = f'{model_key}_{component_key}_style'
-                            ini = None
-                            set_ini(key, ini)
+                            set_ini(key, default_style)
                             style = st.selectbox(
-                                'Select spectral style to display',
+                                'Spectral style',
                                 options,
-                                index=ini,
+                                index=get_idx(key, options) or 0,
                                 key=key,
-                            )
+                            ) if options else None
 
                             key = f'{model_key}_{component_key}_erange'
-                            ini = (0, 4)
-                            set_ini(key, ini)
+                            set_ini(key, (0, 4))
                             erange = st.slider(
-                                'Select energy range in logspace',
+                                'Energy range (log10 keV)',
                                 -1,
                                 5,
-                                value=ini,
+                                value=get_val(key),
                                 key=key,
                             )
                             earr = np.logspace(erange[0], erange[1], 300)
 
+                            tarr = None
                             if component.type == 'add':
                                 key = f'{model_key}_{component_key}_epoch'
-                                ini = None
-                                set_ini(key, ini)
+                                set_ini(key, '')
                                 epoch = st.text_input(
-                                    'Input spectral time (optional)',
-                                    value=ini,
+                                    'Spectral time (optional)',
+                                    value=get_val(key),
                                     placeholder='leave blank if time-independent',
                                     key=key,
                                 )
-                                if epoch == '' or epoch is None:
-                                    tarr = None
-                                else:
+                                if epoch:
                                     try:
-                                        epoch = float(epoch)
+                                        tarr = float(epoch) * np.ones_like(earr)
                                     except (ValueError, TypeError):
                                         st.error(
-                                            'The input value should be int or float!',
+                                            'Spectral time must be a number.',
                                             icon='🚨',
                                         )
-                                        tarr = None
-                                    else:
-                                        tarr = epoch * np.ones_like(earr)
-                            else:
-                                tarr = None
 
                             if style is not None:
                                 modelplot = Plot.model(style=style, post=False)

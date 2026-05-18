@@ -43,10 +43,13 @@ def _fig_html_bytes(fig) -> bytes:
     return pio.to_html(fig, include_plotlyjs='cdn', full_html=True).encode('utf-8')  # type: ignore[arg-type]
 
 
-def _fig_png_bytes(fig) -> bytes | None:
-    """PNG bytes via Kaleido; returns ``None`` if Kaleido is missing."""
+def _fig_image_bytes(fig, fmt: str) -> bytes | None:
+    """Image bytes via Kaleido; returns ``None`` when Kaleido is missing or
+    the format is not supported. ``fmt`` is one of ``'png'`` or ``'svg'``."""
     try:
-        return pio.to_image(fig, format='png', scale=2)
+        if fmt == 'png':
+            return pio.to_image(fig, format='png', scale=2)
+        return pio.to_image(fig, format=fmt)
     except Exception:
         return None
 
@@ -69,9 +72,10 @@ def _result_zip_bytes(
             if fig is None:
                 continue
             zf.writestr(f'{name}.html', _fig_html_bytes(fig))
-            png = _fig_png_bytes(fig)
-            if png is not None:
-                zf.writestr(f'{name}.png', png)
+            for fmt in ('png', 'svg'):
+                img = _fig_image_bytes(fig, fmt)
+                if img is not None:
+                    zf.writestr(f'{name}.{fmt}', img)
 
         if savepath and os.path.isdir(savepath):
             base = Path(savepath)
@@ -83,8 +87,12 @@ def _result_zip_bytes(
 
 
 def _download_fig_row(fig, stem: str, key_prefix: str) -> None:
-    """Two download buttons (HTML + PNG when available) under a Plotly chart."""
-    html_col, png_col = st.columns(2)
+    """Three download buttons (HTML + PNG + SVG) under a Plotly chart.
+
+    PNG / SVG buttons fall back to a disabled "install kaleido" stub if
+    the kaleido backend is not available.
+    """
+    html_col, png_col, svg_col = st.columns(3)
     with html_col:
         st.download_button(
             '⬇️  Download HTML',
@@ -94,24 +102,28 @@ def _download_fig_row(fig, stem: str, key_prefix: str) -> None:
             use_container_width=True,
             key=f'{key_prefix}_html',
         )
-    with png_col:
-        png = _fig_png_bytes(fig)
-        if png is None:
-            st.button(
-                '⬇️  Download PNG (install kaleido)',
-                disabled=True,
-                use_container_width=True,
-                key=f'{key_prefix}_png_disabled',
-            )
-        else:
-            st.download_button(
-                '⬇️  Download PNG',
-                data=png,
-                file_name=f'{stem}.png',
-                mime='image/png',
-                use_container_width=True,
-                key=f'{key_prefix}_png',
-            )
+    for col, fmt, mime in (
+        (png_col, 'png', 'image/png'),
+        (svg_col, 'svg', 'image/svg+xml'),
+    ):
+        with col:
+            img = _fig_image_bytes(fig, fmt)
+            if img is None:
+                st.button(
+                    f'⬇️  Download {fmt.upper()} (kaleido)',
+                    disabled=True,
+                    use_container_width=True,
+                    key=f'{key_prefix}_{fmt}_disabled',
+                )
+            else:
+                st.download_button(
+                    f'⬇️  Download {fmt.upper()}',
+                    data=img,
+                    file_name=f'{stem}.{fmt}',
+                    mime=mime,
+                    use_container_width=True,
+                    key=f'{key_prefix}_{fmt}',
+                )
 
 
 def init_session_state():

@@ -123,7 +123,16 @@ st.write("")
 
 for di, data_key in enumerate(st.session_state.data.keys()):
     bound_model = _binding_for(data_key)
+    # The Data container is re-instantiated at the top of each rerun and
+    # repopulated further down, so its .data dict is empty here. Read the
+    # user-configured unit count from data_state for the expander label.
+    n_units_here = int(
+        st.session_state.data_state.get(f"{data_key}_nunit", 1) or 1
+    )
+    unit_tag = f"{n_units_here} unit{'s' if n_units_here != 1 else ''}"
+
     if bound_model:
+        expander_title = f"**{data_key}** · {unit_tag} · ↔ **{bound_model}**"
         badge_html = (
             f'<div class="bsp-pair-row" style="margin:0 0 .85rem">'
             f'<span class="bsp-data-badge">{data_key}</span>'
@@ -134,6 +143,7 @@ for di, data_key in enumerate(st.session_state.data.keys()):
             f'</div>'
         )
     else:
+        expander_title = f"**{data_key}** · {unit_tag} · — unbound —"
         badge_html = (
             f'<div class="bsp-pair-row" style="margin:0 0 .85rem">'
             f'<span class="bsp-data-badge">{data_key}</span>'
@@ -145,7 +155,7 @@ for di, data_key in enumerate(st.session_state.data.keys()):
             f'</div>'
         )
 
-    with st.expander(f"***Configure the {data_key}***", expanded=False):
+    with st.expander(expander_title, expanded=False):
         st.markdown(badge_html, unsafe_allow_html=True)
         nunit_col, _, fit_col = st.columns([4.9, 0.2, 4.9])
 
