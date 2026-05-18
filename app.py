@@ -19,6 +19,72 @@ def init_session_state():
         st.session_state.infer_state = {}
 
 
+def _workflow_state() -> list[tuple[str, str, bool, str]]:
+    """Compute the five-stage workflow progress from session_state.
+
+    Returns a list of ``(emoji, title, done, caption)`` tuples in stage
+    order, ready for the sidebar mini-stepper to render.
+    """
+    data = st.session_state.get('data', {})
+    model = st.session_state.get('model', {})
+    data_state = st.session_state.get('data_state', {})
+    model_state = st.session_state.get('model_state', {})
+    infer_state = st.session_state.get('infer_state', {})
+
+    n_units = sum(
+        len(getattr(d, 'data', {})) for d in data.values() if d is not None
+    )
+    n_models = sum(1 for m in model.values() if m is not None)
+    n_pairs = 0
+    for dk in data:
+        mk = data_state.get(f'{dk}_model')
+        if mk is None or model_state.get(f'{mk}_data') != dk:
+            continue
+        d = data.get(dk)
+        if d is None or len(getattr(d, 'data', {})) == 0:
+            continue
+        if model.get(mk) is None:
+            continue
+        n_pairs += 1
+
+    has_run = infer_state.get('built_hash') is not None
+    has_post = 'post' in infer_state
+
+    def caption(n: int, unit: str) -> str:
+        return f'{n} {unit}{"s" if n != 1 else ""}'
+
+    return [
+        ('🔭', 'Data', n_units > 0, caption(n_units, 'unit')),
+        ('🌈', 'Model', n_models > 0, caption(n_models, 'model')),
+        ('🔗', 'Pairs', n_pairs > 0, caption(n_pairs, 'pair')),
+        ('🚀', 'Inference', has_run, 'built' if has_run else 'pending'),
+        ('📊', 'Posterior', has_post, 'ready' if has_post else 'pending'),
+    ]
+
+
+def render_workflow_sidebar() -> None:
+    """Render the workflow mini-stepper inside ``st.sidebar``."""
+    stages = _workflow_state()
+    rows = []
+    for emoji, title, done, cap in stages:
+        cls = 'bsp-mini-step done' if done else 'bsp-mini-step'
+        rows.append(
+            f'<div class="{cls}">'
+            f'  <span class="bsp-mini-emoji">{emoji}</span>'
+            f'  <span class="bsp-mini-body">'
+            f'    <span class="bsp-mini-title">{title}</span>'
+            f'    <span class="bsp-mini-caption">{cap}</span>'
+            f'  </span>'
+            f'  <span class="bsp-mini-dot">{"●" if done else "○"}</span>'
+            f'</div>'
+        )
+    st.markdown(
+        '<div class="bsp-mini-stepper-head">Workflow</div>'
+        '<div class="bsp-mini-stepper">' + ''.join(rows) + '</div>',
+        unsafe_allow_html=True,
+    )
+
+
 GLOBAL_CSS = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
@@ -510,6 +576,75 @@ GLOBAL_CSS = """
         font-weight: 700;
     }
 
+    /* Sidebar workflow mini-stepper */
+    .bsp-mini-stepper-head {
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        color: var(--bsp-text-muted);
+        margin: 0.4rem 0.1rem 0.5rem;
+    }
+    .bsp-mini-stepper {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        margin-bottom: 0.6rem;
+    }
+    .bsp-mini-step {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        padding: 0.45rem 0.6rem;
+        border-radius: 10px;
+        border: 1px solid var(--bsp-border-soft);
+        background-color: var(--bsp-bg);
+        transition: border-color 0.15s ease, background-color 0.15s ease;
+    }
+    .bsp-mini-step.done {
+        border-color: rgba(16, 185, 129, 0.30);
+        background-color: rgba(16, 185, 129, 0.05);
+    }
+    .bsp-mini-emoji { font-size: 1.05rem; line-height: 1; }
+    .bsp-mini-body {
+        display: flex;
+        flex-direction: column;
+        gap: 0.05rem;
+        flex: 1;
+        min-width: 0;
+    }
+    .bsp-mini-title {
+        font-size: 0.86rem;
+        font-weight: 600;
+        color: var(--bsp-text);
+        line-height: 1.2;
+    }
+    .bsp-mini-caption {
+        font-size: 0.72rem;
+        color: var(--bsp-text-muted);
+        line-height: 1.2;
+        font-family: 'JetBrains Mono', monospace;
+    }
+    .bsp-mini-dot {
+        font-size: 0.95rem;
+        color: var(--bsp-border);
+    }
+    .bsp-mini-step.done .bsp-mini-dot { color: var(--bsp-success); }
+
+    /* Page header block (eyebrow + subtitle pair used on Data/Model/Infer) */
+    .bsp-page-eyebrow {
+        display: inline-block;
+        padding: 0.22rem 0.7rem;
+        background-color: rgba(79, 70, 229, 0.08);
+        color: var(--bsp-primary);
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.10em;
+        text-transform: uppercase;
+        margin: -0.4rem 0 0.55rem;
+    }
+
     /* Small count pill, used by section heads */
     .bsp-count-pill {
         display: inline-flex;
@@ -545,12 +680,16 @@ st.logo(
     size='large',
 )
 
+# Initialise session state before any page or sidebar reads it.
+init_session_state()
+
 with st.sidebar:
     st.markdown(
         '<div class="bsp-tagline">Bayesian spectral fitting workbench '
         'for high-energy astrophysics.</div>',
         unsafe_allow_html=True,
     )
+    render_workflow_sidebar()
     st.divider()
 
 nav = get_nav_from_toml('.streamlit/pages.toml')
@@ -560,5 +699,3 @@ pg = st.navigation(nav)
 add_page_title(pg)
 
 pg.run()
-
-init_session_state()

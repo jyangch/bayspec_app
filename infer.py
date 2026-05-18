@@ -134,6 +134,7 @@ def init_session_state():
 init_session_state()
 
 st.markdown(
+    '<span class="bsp-page-eyebrow">Stage 3 · Inference</span>'
     '<p class="bsp-subtitle">Pair Data ↔ Model, do a manual fit, then run a Bayesian '
     'sampler or maximum-likelihood optimizer and inspect the posterior.</p>',
     unsafe_allow_html=True,
@@ -275,6 +276,13 @@ if built:
     try:
         infer = BayesInfer(pair_list)
         st.session_state.infer = infer
+        # Snapshot the initial parameter values once per (re)build so the
+        # Manual-fit Reset button has something to restore to.
+        if ist.get('initial_par_hash') != pair_hash:
+            ist['initial_par_values'] = {
+                pid: float(p.val) for pid, p in infer.par.items()
+            }
+            ist['initial_par_hash'] = pair_hash
     except Exception as exc:
         st.error(f'Could not build inference object: {exc}', icon='🚨')
         built = confirmed = False
@@ -500,6 +508,23 @@ with st.expander('***Manual fitting***', expanded=True):
         },
     )
 
+    reset_col, _ = st.columns([2, 8])
+    with reset_col:
+        if st.button(
+            '↺  Reset to initial',
+            help='Restore each free parameter to the value it had when '
+            'inference was first built (typically the Model page setup).',
+            use_container_width=True,
+        ):
+            snap = st.session_state.infer_state.get('initial_par_values', {})
+            for pid, val in snap.items():
+                if pid in infer.par:
+                    infer.par[pid].val = val
+            # Drop the data_editor cache + widget state so the table reloads.
+            st.session_state.infer_state.pop('manual_par', None)
+            st.session_state.pop('manual_par', None)
+            st.rerun()
+
     for _, row in par_df.to_dict('index').items():
         par_obj = infer.par[row['par#']]
         try:
@@ -669,44 +694,89 @@ with st.expander('***Inference***', expanded=True):
             if not sampler_exist:
                 st.warning('Selected method backend is not installed!', icon='⚠️')
             else:
+                # Run config summary for the user's records.
+                if sampler == 'multinest':
+                    cfg_line = f'multinest · nlive={multinest_nlive} · resume={resume}'
+                elif sampler == 'emcee':
+                    cfg_line = (
+                        f'emcee · nstep={emcee_nstep} · discard={emcee_discard} · '
+                        f'resume={resume}'
+                    )
+                else:
+                    cfg_line = f'{sampler} (max-likelihood optimizer)'
+
                 run_panel = st.container(border=True)
-                with run_panel, st.status('Running…', expanded=True) as status:
+                t0 = time.time()
+                with run_panel, st.status(
+                    f'Running {sampler}…', expanded=True
+                ) as status:
+                    st.markdown(f'**Method**  ·  `{cfg_line}`')
+                    st.markdown(f'**Savepath**  ·  `{savepath}`')
                     st.write(
-                        f'Start: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}'
+                        '🕐 Start: '
+                        f'{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t0))}'
                     )
                     if not os.path.exists(savepath):
                         os.makedirs(savepath)
+                        st.write(f'📁 Created savepath: `{savepath}`')
+                    n_free = infer.free_nparams
+                    st.write(f'🧮 Free parameters: **{n_free}**')
 
-                    if sampler == 'multinest':
-                        post = infer.multinest(
-                            nlive=multinest_nlive,
-                            resume=resume,
-                            savepath=savepath,
-                        )
-                    elif sampler == 'emcee':
-                        post = infer.emcee(
-                            nstep=emcee_nstep,
-                            discard=emcee_discard,
-                            resume=resume,
-                            savepath=savepath,
-                        )
-                    elif sampler in ('lmfit', 'iminuit'):
-                        fit = MaxLikeFit(pair_list)
-                        post = (
-                            fit.lmfit(savepath=savepath)
-                            if sampler == 'lmfit'
-                            else fit.iminuit(savepath=savepath)
-                        )
-                    else:
-                        post = None
+                    post = None
+                    err: str | None = None
+                    try:
+                        if sampler == 'multinest':
+                            st.write('🚀 Sampling with MultiNest…')
+                            post = infer.multinest(
+                                nlive=multinest_nlive,
+                                resume=resume,
+                                savepath=savepath,
+                            )
+                        elif sampler == 'emcee':
+                            st.write(
+                                f'🚀 Sampling with emcee ({emcee_nstep} steps)…'
+                            )
+                            post = infer.emcee(
+                                nstep=emcee_nstep,
+                                discard=emcee_discard,
+                                resume=resume,
+                                savepath=savepath,
+                            )
+                        elif sampler in ('lmfit', 'iminuit'):
+                            st.write(f'⚙️ Optimising with {sampler}…')
+                            fit = MaxLikeFit(pair_list)
+                            post = (
+                                fit.lmfit(savepath=savepath)
+                                if sampler == 'lmfit'
+                                else fit.iminuit(savepath=savepath)
+                            )
+                    except Exception as exc:
+                        err = str(exc)
+                        st.write(f'🚨 **Run failed:** {err}')
 
+                    elapsed = time.time() - t0
                     st.write(
-                        f'Stop: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())}'
+                        '🕐 Stop: '
+                        f'{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())} '
+                        f'  ·  elapsed **{elapsed:0.1f}s**'
                     )
+
                     if post is not None:
                         st.session_state.infer_state['post'] = post
-                    status.update(label='Run complete!', state='complete', expanded=False)
-                st.rerun()
+                        st.session_state.infer_state['last_elapsed'] = elapsed
+                        status.update(
+                            label=f'Run complete in {elapsed:0.1f}s',
+                            state='complete',
+                            expanded=False,
+                        )
+                    else:
+                        status.update(
+                            label='Run failed',
+                            state='error',
+                            expanded=True,
+                        )
+                if post is not None:
+                    st.rerun()
 
     post = st.session_state.infer_state.get('post')
 

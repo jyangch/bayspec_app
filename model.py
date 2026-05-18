@@ -31,6 +31,7 @@ def init_session_state():
 init_session_state()
 
 st.markdown(
+    '<span class="bsp-page-eyebrow">Stage 2 · Spectral model</span>'
     '<p class="bsp-subtitle">Compose spectral models from local, Astromodels, XSPEC '
     'or your own components, then bind each to a Data container.</p>',
     unsafe_allow_html=True,

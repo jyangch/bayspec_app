@@ -24,6 +24,7 @@ def init_session_state():
 init_session_state()
 
 st.markdown(
+    '<span class="bsp-page-eyebrow">Stage 1 · Spectral data</span>'
     '<p class="bsp-subtitle">Upload OGIP spectra and configure noticing, grouping, '
     'and rebinning per data unit.</p>',
     unsafe_allow_html=True,
