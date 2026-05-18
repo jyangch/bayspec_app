@@ -17,7 +17,18 @@ def _df_csv_bytes(df: pd.DataFrame) -> bytes:
 
 
 def _info_df(info) -> pd.DataFrame:
-    return pd.DataFrame(info.data_dict)
+    """Coerce a bayspec ``Info`` view into an Arrow-safe DataFrame.
+
+    bayspec sometimes mixes plain floats with formatted strings (e.g.
+    ``"622897217.344/126"`` for value/dof entries) in the same column.
+    Pyarrow then warns about ambiguous object columns; cast each value to
+    str so Streamlit's display path stays quiet.
+    """
+    df = pd.DataFrame(info.data_dict)
+    for col in df.columns:
+        if df[col].dtype == object:
+            df[col] = df[col].astype(str)
+    return df
 
 
 def _samples_df(post) -> pd.DataFrame:
@@ -341,11 +352,11 @@ if not confirmed:
         cfg_col, _, par_col = st.columns([4.9, 0.2, 4.9])
         with cfg_col:
             st.markdown('**Configurations**')
-            cfg_df = pd.DataFrame(infer.cfg_info.data_dict)
+            cfg_df = _info_df(infer.cfg_info)
             st.dataframe(cfg_df, use_container_width=True, hide_index=True)
         with par_col:
             st.markdown('**Parameters**')
-            par_df = pd.DataFrame(infer.notable_par_info.data_dict)
+            par_df = _info_df(infer.notable_par_info)
             st.dataframe(par_df, use_container_width=True, hide_index=True)
 
         confirm_col, recheck_col = st.columns(2)
@@ -439,7 +450,7 @@ with st.expander('***Parameter links***', expanded=False):
                 st.session_state.pop('infer_nlink', None)
                 st.rerun()
 
-    par_df = pd.DataFrame(infer.notable_par_info.data_dict)
+    par_df = _info_df(infer.notable_par_info)
     st.dataframe(par_df, use_container_width=True, hide_index=True)
 
 with st.expander('***Manual fitting***', expanded=True):
@@ -503,7 +514,7 @@ with st.expander('***Manual fitting***', expanded=True):
     stat_col, _, plot_col = st.columns([4.9, 0.2, 4.9])
 
     with stat_col:
-        stat_df = pd.DataFrame(infer.stat_info.data_dict)
+        stat_df = _info_df(infer.stat_info)
         st.dataframe(stat_df, use_container_width=True, hide_index=True)
 
     with plot_col:
