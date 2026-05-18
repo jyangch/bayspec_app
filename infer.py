@@ -491,34 +491,68 @@ with st.expander('***Manual fitting***', expanded=True):
         for r in infer.all_params
         if not (r['Frozen'] and r['Class'] == 'data')
     ]
-    fresh_df = pd.DataFrame(raw_rows)
+    active_rows = [r for r in raw_rows if not r['Frozen']]
+    frozen_rows = [r for r in raw_rows if r['Frozen']]
 
-    key = 'manual_par'
-    set_ini(key, fresh_df)
-    cached = st.session_state.infer_state[key]
-    pids_match = (
-        isinstance(cached, pd.DataFrame)
-        and list(cached.columns) == list(fresh_df.columns)
-        and len(cached) == len(fresh_df)
-        and list(cached['par#']) == list(fresh_df['par#'])
-    )
-    if not pids_match:
-        st.session_state.infer_state[key] = fresh_df
+    def _sync_table(state_key: str, fresh_df: pd.DataFrame) -> pd.DataFrame:
+        """Cache the editable view so user edits persist across reruns,
+        invalidating whenever the par# set changes."""
+        set_ini(state_key, fresh_df)
+        cached = st.session_state.infer_state[state_key]
+        pids_match = (
+            isinstance(cached, pd.DataFrame)
+            and list(cached.columns) == list(fresh_df.columns)
+            and len(cached) == len(fresh_df)
+            and list(cached['par#']) == list(fresh_df['par#'])
+        )
+        if not pids_match:
+            st.session_state.infer_state[state_key] = fresh_df
+        return get_data(state_key)
 
-    par_df = st.data_editor(
-        get_data(key),
-        use_container_width=True,
-        num_rows='fixed',
-        disabled=['par#', 'Class', 'Expression', 'Component', 'Parameter', 'Prior'],
-        hide_index=True,
-        key=key,
-        column_config={
-            'Value': st.column_config.NumberColumn(format='%.6g'),
-            'Frozen': st.column_config.CheckboxColumn(
-                help='Hold this parameter fixed during fitting / inference.'
-            ),
-        },
-    )
+    par_cols_disabled = ['par#', 'Class', 'Expression', 'Component', 'Parameter', 'Prior']
+    par_col_config = {
+        'Value': st.column_config.NumberColumn(format='%.6g'),
+        'Frozen': st.column_config.CheckboxColumn(
+            help='Hold this parameter fixed during fitting / inference.'
+        ),
+    }
+
+    st.markdown('**🔓 Active parameters**')
+    if active_rows:
+        active_df = st.data_editor(
+            _sync_table('manual_par_active', pd.DataFrame(active_rows)),
+            use_container_width=True,
+            num_rows='fixed',
+            disabled=par_cols_disabled,
+            hide_index=True,
+            key='manual_par_active',
+            column_config=par_col_config,
+        )
+    else:
+        empty_cols = pd.Index(list(raw_rows[0].keys())) if raw_rows else pd.Index([])
+        active_df = pd.DataFrame(columns=empty_cols)
+        st.caption('All parameters are currently frozen.')
+
+    if frozen_rows:
+        with st.container(border=True):
+            st.markdown(
+                '<div style="color:var(--bsp-text-muted);font-size:.8rem;'
+                'font-weight:700;letter-spacing:.08em;text-transform:uppercase;'
+                'margin-bottom:.4rem">❄ Frozen parameters</div>',
+                unsafe_allow_html=True,
+            )
+            frozen_df = st.data_editor(
+                _sync_table('manual_par_frozen', pd.DataFrame(frozen_rows)),
+                use_container_width=True,
+                num_rows='fixed',
+                disabled=par_cols_disabled,
+                hide_index=True,
+                key='manual_par_frozen',
+                column_config=par_col_config,
+            )
+    else:
+        empty_cols2 = pd.Index(list(raw_rows[0].keys())) if raw_rows else pd.Index([])
+        frozen_df = pd.DataFrame(columns=empty_cols2)
 
     reset_col, _ = st.columns([2, 8])
     with reset_col:
@@ -532,12 +566,15 @@ with st.expander('***Manual fitting***', expanded=True):
             for pid, val in snap.items():
                 if pid in infer.par:
                     infer.par[pid].val = val
-            # Drop the data_editor cache + widget state so the table reloads.
-            st.session_state.infer_state.pop('manual_par', None)
-            st.session_state.pop('manual_par', None)
+            for tk in ('manual_par_active', 'manual_par_frozen'):
+                st.session_state.infer_state.pop(tk, None)
+                st.session_state.pop(tk, None)
             st.rerun()
 
-    for _, row in par_df.to_dict('index').items():
+    # Apply every edit (Value / Frozen) from both tables into the underlying
+    # Par objects. The order matters only insofar as the last write wins;
+    # the two tables never share par#s in a single rerun.
+    for _, row in pd.concat([active_df, frozen_df], ignore_index=True).to_dict('index').items():
         par_obj = infer.par[row['par#']]
         try:
             par_obj.val = float(row['Value'])

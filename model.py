@@ -470,6 +470,21 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                             plabels_sig = ','.join(p['Parameter'] for p in par_rows)
                             key = f'{model_key}_{component_key}_par|{plabels_sig}'
                             set_ini(key, par_df)
+
+                            # Snapshot the library-default value/frozen/prior for
+                            # this component the first time it appears (so the
+                            # per-component Reset button has a target).
+                            snap_key = f'{model_key}_{component_key}_par_snap|{plabels_sig}'
+                            if snap_key not in st.session_state.model_state:
+                                st.session_state.model_state[snap_key] = {
+                                    int(r['par#']): {
+                                        'val': float(r['Value']),
+                                        'frozen': bool(r['Frozen']),
+                                        'prior': r['Prior'],
+                                    }
+                                    for r in par_rows
+                                }
+
                             par_df = st.data_editor(
                                 get_data(key),
                                 use_container_width=True,
@@ -484,6 +499,39 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                                     ),
                                 },
                             )
+
+                            reset_col, _ = st.columns([2, 8])
+                            with reset_col:
+                                if st.button(
+                                    '↺  Reset',
+                                    key=f'reset_{model_key}_{component_key}',
+                                    help='Restore this component to its library-default '
+                                    'value, frozen state and prior.',
+                                    use_container_width=True,
+                                ):
+                                    snap = st.session_state.model_state.get(snap_key, {})
+                                    for pid, s in snap.items():
+                                        po = component.par.get(pid)
+                                        if po is None:
+                                            continue
+                                        po.val = s['val']
+                                        po.frozen = s['frozen']
+                                        prior_str = str(s['prior']).strip()
+                                        prior_info = [
+                                            t.strip() for t in re.split(r'[(,)]', prior_str)
+                                        ]
+                                        prior_name = prior_info[0]
+                                        args_str = prior_info[1:-1]
+                                        if prior_name in all_priors and args_str:
+                                            try:
+                                                args = [float(x) for x in args_str]
+                                                po.prior = all_priors[prior_name](*args)
+                                            except (ValueError, TypeError):
+                                                pass
+                                    # Drop the data_editor cache so the table reloads.
+                                    st.session_state.model_state.pop(key, None)
+                                    st.session_state.pop(key, None)
+                                    st.rerun()
 
                             for _, row in par_df.to_dict('index').items():
                                 par_obj = component.par[int(row['par#'])]
@@ -698,103 +746,95 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
                         for comment in model.comment.split('\n'):
                             st.info(comment)
 
-                with st.popover('📈  Display model spectra', use_container_width=True):
+                with st.expander(
+                    '📈  Composed-model spectrum',
+                    expanded=False,
+                ):
                     if st.session_state.model[model_key] is None:
                         st.warning('The model has not been set!', icon='⚠️')
                     elif None in list(st.session_state.model_component[model_key].values()):
                         st.warning('Some model components have not been set!', icon='⚠️')
                     else:
-                        key = f'{model_key}_style'
-                        ini = None
-                        set_ini(key, ini)
-                        options = ['Fv', 'NE', 'vFv', 'NoU']
+                        style_options = ['NE', 'Fv', 'vFv', 'NoU']
+                        style_key = f'{model_key}_style'
+                        set_ini(style_key, 'NE')
                         style = st.selectbox(
-                            'Select spectral style to display',
-                            options,
-                            index=ini,
-                            key=key,
+                            'Spectral style',
+                            style_options,
+                            index=get_idx(style_key, style_options) or 0,
+                            key=style_key,
                         )
 
                         all_comps = st.session_state.model_component[model_key]
 
-                        nou_comps = dict()
-                        you_comps = dict()
-                        for key, comp in all_comps.items():
-                            if comp.type in ['mul', 'math']:
-                                nou_comps[key] = comp
-                            if comp.type == 'add':
-                                you_comps[key] = comp
+                        nou_comps = {
+                            ck: c for ck, c in all_comps.items()
+                            if c.type in ('mul', 'math')
+                        }
+                        you_comps = {
+                            ck: c for ck, c in all_comps.items()
+                            if c.type == 'add'
+                        }
 
-                        if style in ['Fv', 'NE', 'vFv']:
-                            options = list(you_comps.keys())
-                        elif style in ['NoU']:
-                            options = list(nou_comps.keys())
+                        if style in ('Fv', 'NE', 'vFv'):
+                            comp_options = list(you_comps.keys())
+                        elif style == 'NoU':
+                            comp_options = list(nou_comps.keys())
                         else:
-                            options = []
+                            comp_options = []
 
-                        key = f'{model_key}_comps'
-                        ini = None
-                        set_ini(key, ini)
+                        comps_key = f'{model_key}_comps'
+                        set_ini(comps_key, [])
+                        comp_default = [c for c in get_val(comps_key) if c in comp_options]
                         comp_keys = st.multiselect(
-                            'Select the model components to display',
-                            options=options,
-                            default=ini,
-                            key=key,
+                            'Components to display',
+                            options=comp_options,
+                            default=comp_default,
+                            key=comps_key,
                         )
 
-                        if len(comp_keys) > 0:
+                        if comp_keys and style is not None:
                             modelplot = Plot.model(style=style, post=False)
-
-                            comp_tabs = st.tabs([str(comp) for comp in comp_keys])
-                            for comp_key, comp_tab in zip(comp_keys, comp_tabs, strict=False):
-                                comp = all_comps[comp_key]
+                            comp_tabs = st.tabs([str(c) for c in comp_keys])
+                            for comp_label, comp_tab in zip(comp_keys, comp_tabs, strict=False):
+                                comp = all_comps[comp_label]
                                 with comp_tab:
-                                    key = f'{model_key}_{comp_key}_erange'
-                                    ini = (0, 4)
-                                    set_ini(key, ini)
+                                    er_key = f'{model_key}_{comp_label}_erange'
+                                    set_ini(er_key, (0, 4))
                                     erange = st.slider(
-                                        'Select energy range in logspace',
+                                        'Energy range (log10 keV)',
                                         -1,
                                         5,
-                                        value=ini,
-                                        key=key,
+                                        value=get_val(er_key),
+                                        key=er_key,
                                     )
                                     earr = np.logspace(erange[0], erange[1], 300)
 
+                                    tarr = None
                                     if comp.type == 'add':
-                                        key = f'{model_key}_{comp_key}_epoch'
-                                        ini = None
-                                        set_ini(key, ini)
-                                        epoch = st.text_input(
-                                            'Input spectral time (optional)',
-                                            value=ini,
+                                        ep_key = f'{model_key}_{comp_label}_epoch'
+                                        set_ini(ep_key, '')
+                                        epoch_str = st.text_input(
+                                            'Spectral time (optional)',
+                                            value=get_val(ep_key),
                                             placeholder='leave blank if time-independent',
-                                            key=key,
+                                            key=ep_key,
                                         )
-                                        if epoch == '' or epoch is None:
-                                            tarr = None
-                                        else:
+                                        if epoch_str:
                                             try:
-                                                epoch = float(epoch)
+                                                tarr = float(epoch_str) * np.ones_like(earr)
                                             except (ValueError, TypeError):
                                                 st.error(
-                                                    'The input value should be int or float!',
+                                                    'Spectral time must be a number.',
                                                     icon='🚨',
                                                 )
-                                                tarr = None
-                                            else:
-                                                tarr = epoch * np.ones_like(earr)
-                                    else:
-                                        tarr = None
 
                                 modelplot.add_model(comp, earr, tarr)
 
                             fig = modelplot.get_fig()
-
-                            key = f'{model_key}_fig'
                             st.plotly_chart(
                                 fig.fig,
                                 theme='streamlit',
                                 use_container_width=True,
-                                key=key,
+                                key=f'{model_key}_fig',
                             )
