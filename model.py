@@ -110,8 +110,62 @@ for i in range(nmodel):
 for i in range(nmodel):
     st.session_state.model_component[f'Model{i + 1}'] = {}
 
+
+# ---- Summary header: models / components / bindings ------------------
+def _data_for(mkey: str) -> str | None:
+    """Return the data key bound to ``mkey``, or None."""
+    dkey = st.session_state.model_state.get(f'{mkey}_data')
+    if dkey is None:
+        return None
+    if st.session_state.data_state.get(f'{dkey}_model') != mkey:
+        return None
+    return dkey
+
+
+total_components = sum(
+    len(st.session_state.model_component.get(k, {}))
+    for k in st.session_state.model
+)
+bound_count = sum(
+    1 for k in st.session_state.model if _data_for(k) is not None
+)
+
+stat_a, stat_b, stat_c = st.columns(3)
+stat_a.metric('Models', nmodel)
+stat_b.metric('Components', total_components)
+stat_c.metric(
+    'Bound to a data',
+    f'{bound_count} / {nmodel}',
+    help='Pairs ready to feed into the Inference page.',
+)
+st.write('')
+
 for mi, model_key in enumerate(st.session_state.model.keys()):
+    bound_data = _data_for(model_key)
+    if bound_data:
+        badge_html = (
+            f'<div class="bsp-pair-row" style="margin:0 0 .85rem">'
+            f'<span class="bsp-data-badge">{bound_data}</span>'
+            f'<span class="bsp-pair-arrow">↔</span>'
+            f'<span class="bsp-model-badge">{model_key}</span>'
+            f'<span style="margin-left:auto;color:var(--bsp-success);'
+            f'font-weight:600;font-size:.85rem">● bound</span>'
+            f'</div>'
+        )
+    else:
+        badge_html = (
+            f'<div class="bsp-pair-row" style="margin:0 0 .85rem">'
+            f'<span style="font-family:JetBrains Mono,monospace;font-size:.9rem;'
+            f'color:var(--bsp-text-muted)">— unbound —</span>'
+            f'<span class="bsp-pair-arrow">↔</span>'
+            f'<span class="bsp-model-badge">{model_key}</span>'
+            f'<span style="margin-left:auto;color:var(--bsp-text-muted);'
+            f'font-weight:600;font-size:.85rem">○ no data</span>'
+            f'</div>'
+        )
+
     with st.expander(f'***Configure the {model_key}***', expanded=False):
+        st.markdown(badge_html, unsafe_allow_html=True)
         ncomponent_col, _, fit_col = st.columns([4.9, 0.2, 4.9])
 
         with ncomponent_col:

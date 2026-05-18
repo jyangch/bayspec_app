@@ -89,8 +89,62 @@ with st.sidebar:
 for i in range(ndata):
     st.session_state.data[f"Data{i + 1}"] = Data()
 
+
+# ---- Summary header: containers / units / bindings --------------------
+def _binding_for(dkey: str) -> str | None:
+    """Return the model key bound to ``dkey``, or None."""
+    mkey = st.session_state.data_state.get(f"{dkey}_model")
+    if mkey is None:
+        return None
+    # Cross-check that the model side agrees, mirroring the Infer page rule.
+    if st.session_state.model_state.get(f"{mkey}_data") != dkey:
+        return None
+    return mkey
+
+
+total_units = sum(
+    len(st.session_state.data.get(k, Data())) for k in st.session_state.data
+)
+bound_count = sum(
+    1 for k in st.session_state.data if _binding_for(k) is not None
+)
+
+stat_a, stat_b, stat_c = st.columns(3)
+stat_a.metric("Data containers", ndata)
+stat_b.metric("DataUnits", total_units)
+stat_c.metric(
+    "Bound to a model",
+    f"{bound_count} / {ndata}",
+    help="Pairs ready to feed into the Inference page.",
+)
+st.write("")
+
 for di, data_key in enumerate(st.session_state.data.keys()):
+    bound_model = _binding_for(data_key)
+    if bound_model:
+        badge_html = (
+            f'<div class="bsp-pair-row" style="margin:0 0 .85rem">'
+            f'<span class="bsp-data-badge">{data_key}</span>'
+            f'<span class="bsp-pair-arrow">↔</span>'
+            f'<span class="bsp-model-badge">{bound_model}</span>'
+            f'<span style="margin-left:auto;color:var(--bsp-success);'
+            f'font-weight:600;font-size:.85rem">● bound</span>'
+            f'</div>'
+        )
+    else:
+        badge_html = (
+            f'<div class="bsp-pair-row" style="margin:0 0 .85rem">'
+            f'<span class="bsp-data-badge">{data_key}</span>'
+            f'<span class="bsp-pair-arrow">↔</span>'
+            f'<span style="font-family:JetBrains Mono,monospace;font-size:.9rem;'
+            f'color:var(--bsp-text-muted)">— unbound —</span>'
+            f'<span style="margin-left:auto;color:var(--bsp-text-muted);'
+            f'font-weight:600;font-size:.85rem">○ no model</span>'
+            f'</div>'
+        )
+
     with st.expander(f"***Configure the {data_key}***", expanded=False):
+        st.markdown(badge_html, unsafe_allow_html=True)
         nunit_col, _, fit_col = st.columns([4.9, 0.2, 4.9])
 
         with nunit_col:
