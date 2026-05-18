@@ -1,12 +1,106 @@
+import io
 import os
 from pathlib import Path
 import time
+import zipfile
 
 from bayspec.infer.infer import BayesInfer, MaxLikeFit
 from bayspec.util.plot import Plot
 import numpy as np
 import pandas as pd
+import plotly.io as pio
 import streamlit as st
+
+
+def _df_csv_bytes(df: pd.DataFrame) -> bytes:
+    return df.to_csv(index=False).encode('utf-8')
+
+
+def _info_df(info) -> pd.DataFrame:
+    return pd.DataFrame(info.data_dict)
+
+
+def _samples_df(post) -> pd.DataFrame:
+    """Stack ``param_sample`` and ``prob_sample`` into a labeled DataFrame."""
+    cols: list[str] = [str(c) for c in post.clean_free_plabels]
+    df = pd.DataFrame(post.param_sample, columns=pd.Index(cols))
+    df['logprob'] = post.prob_sample
+    return df
+
+
+def _fig_html_bytes(fig) -> bytes:
+    return pio.to_html(fig, include_plotlyjs='cdn', full_html=True).encode('utf-8')  # type: ignore[arg-type]
+
+
+def _fig_png_bytes(fig) -> bytes | None:
+    """PNG bytes via Kaleido; returns ``None`` if Kaleido is missing."""
+    try:
+        return pio.to_image(fig, format='png', scale=2)
+    except Exception:
+        return None
+
+
+def _result_zip_bytes(
+    post,
+    savepath: str,
+    extra_plots: dict[str, object] | None = None,
+) -> bytes:
+    """Zip up CSVs of summary tables, the samples matrix, every supplied
+    plot as HTML, and any files already written to ``savepath``."""
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr('free_params.csv', _df_csv_bytes(_info_df(post.free_par_info)))
+        zf.writestr('stat.csv', _df_csv_bytes(_info_df(post.stat_info)))
+        zf.writestr('IC.csv', _df_csv_bytes(_info_df(post.IC_info)))
+        zf.writestr('samples.csv', _df_csv_bytes(_samples_df(post)))
+
+        for name, fig in (extra_plots or {}).items():
+            if fig is None:
+                continue
+            zf.writestr(f'{name}.html', _fig_html_bytes(fig))
+            png = _fig_png_bytes(fig)
+            if png is not None:
+                zf.writestr(f'{name}.png', png)
+
+        if savepath and os.path.isdir(savepath):
+            base = Path(savepath)
+            for p in base.rglob('*'):
+                if p.is_file():
+                    zf.write(p, arcname=str(Path('savepath') / p.relative_to(base)))
+
+    return buf.getvalue()
+
+
+def _download_fig_row(fig, stem: str, key_prefix: str) -> None:
+    """Two download buttons (HTML + PNG when available) under a Plotly chart."""
+    html_col, png_col = st.columns(2)
+    with html_col:
+        st.download_button(
+            '⬇️  Download HTML',
+            data=_fig_html_bytes(fig),
+            file_name=f'{stem}.html',
+            mime='text/html',
+            use_container_width=True,
+            key=f'{key_prefix}_html',
+        )
+    with png_col:
+        png = _fig_png_bytes(fig)
+        if png is None:
+            st.button(
+                '⬇️  Download PNG (install kaleido)',
+                disabled=True,
+                use_container_width=True,
+                key=f'{key_prefix}_png_disabled',
+            )
+        else:
+            st.download_button(
+                '⬇️  Download PNG',
+                data=png,
+                file_name=f'{stem}.png',
+                mime='image/png',
+                use_container_width=True,
+                key=f'{key_prefix}_png',
+            )
 
 
 def init_session_state():
@@ -581,6 +675,36 @@ with st.expander('***Inference***', expanded=True):
     post = st.session_state.infer_state.get('post')
 
     with post_col:
+        # Build the plots once so they can both render *and* be packaged into
+        # downloads. We do this lazily — only when post exists.
+        corner_fig = ctsspec_fig = None
+        if post is not None:
+            try:
+                corner_fig = Plot.post_corner(post).fig
+            except Exception:
+                corner_fig = None
+            try:
+                ctsspec_fig = Plot.infer(post, style='CE').fig
+            except Exception:
+                ctsspec_fig = None
+
+            zip_bytes = _result_zip_bytes(
+                post,
+                savepath,
+                extra_plots={'corner': corner_fig, 'ctsspec': ctsspec_fig},
+            )
+            st.download_button(
+                '📦  Download all results (.zip)',
+                data=zip_bytes,
+                file_name='bayspec_results.zip',
+                mime='application/zip',
+                use_container_width=True,
+                key='infer_download_zip',
+                help='CSVs of parameter / stat / IC tables, samples matrix, '
+                'corner & spectra HTML/PNG, plus whatever the sampler wrote '
+                'to the savepath folder.',
+            )
+
         with st.popover('📊  Posterior summary', use_container_width=True):
             if post is None:
                 empty_card(
@@ -589,56 +713,82 @@ with st.expander('***Inference***', expanded=True):
                     'Run a sampler or optimizer to see results here.',
                 )
             else:
+                free_par_df = _info_df(post.free_par_info)
+                stat_df = _info_df(post.stat_info)
+                IC_df = _info_df(post.IC_info)
+
                 st.markdown('**Free parameters**')
-                st.dataframe(
-                    pd.DataFrame(post.free_par_info.data_dict),
-                    use_container_width=True,
-                    hide_index=True,
+                st.dataframe(free_par_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    '⬇️  Download CSV',
+                    data=_df_csv_bytes(free_par_df),
+                    file_name='free_params.csv',
+                    mime='text/csv',
+                    key='post_free_par_csv',
                 )
+
                 st.markdown('**Statistic**')
-                st.dataframe(
-                    pd.DataFrame(post.stat_info.data_dict),
-                    use_container_width=True,
-                    hide_index=True,
+                st.dataframe(stat_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    '⬇️  Download CSV',
+                    data=_df_csv_bytes(stat_df),
+                    file_name='stat.csv',
+                    mime='text/csv',
+                    key='post_stat_csv',
                 )
+
                 st.markdown('**Information criteria**')
-                st.dataframe(
-                    pd.DataFrame(post.IC_info.data_dict),
-                    use_container_width=True,
-                    hide_index=True,
+                st.dataframe(IC_df, use_container_width=True, hide_index=True)
+                st.download_button(
+                    '⬇️  Download CSV',
+                    data=_df_csv_bytes(IC_df),
+                    file_name='IC.csv',
+                    mime='text/csv',
+                    key='post_IC_csv',
                 )
 
         with st.popover('🎯  Corner plot', use_container_width=True):
-            if post is None:
+            if post is None or corner_fig is None:
                 empty_card(
                     '🚀',
                     'No inference results yet',
                     'Run a Bayesian sampler to see the corner plot.',
                 )
             else:
-                fig = Plot.post_corner(post)
                 st.plotly_chart(
-                    fig.fig,
+                    corner_fig,
                     theme='streamlit',
                     use_container_width=True,
                     key='infer_corner_fig',
                 )
+                samples_df = _samples_df(post)
+                st.download_button(
+                    '⬇️  Download samples CSV',
+                    data=_df_csv_bytes(samples_df),
+                    file_name='samples.csv',
+                    mime='text/csv',
+                    use_container_width=True,
+                    key='post_samples_csv',
+                    help=f'{len(samples_df)} samples × {samples_df.shape[1]} columns '
+                    '(free params + logprob).',
+                )
+                _download_fig_row(corner_fig, 'corner', 'post_corner')
 
         with st.popover('📈  Counts spectra', use_container_width=True):
-            if post is None:
+            if post is None or ctsspec_fig is None:
                 empty_card(
                     '🚀',
                     'No inference results yet',
                     'Run a sampler or optimizer to see the fitted counts spectra.',
                 )
             else:
-                fig = Plot.infer(post, style='CE')
                 st.plotly_chart(
-                    fig.fig,
+                    ctsspec_fig,
                     theme='streamlit',
                     use_container_width=True,
                     key='infer_ctsspec_fig',
                 )
+                _download_fig_row(ctsspec_fig, 'ctsspec', 'post_ctsspec')
 
         with st.popover('🌊  Model spectra', use_container_width=True):
             if post is None:
@@ -729,3 +879,4 @@ with st.expander('***Inference***', expanded=True):
                         use_container_width=True,
                         key='infer_model_fig',
                     )
+                    _download_fig_row(fig.fig, 'model_spectra', 'post_model')
