@@ -34,26 +34,40 @@ d.metric('Stack', 'Streamlit', help='browser-based, no install on user side')
 
 st.write('')
 
-st.markdown('#### What you can do')
-f1, f2, f3 = st.columns(3)
-with f1.container(border=True):
-    st.markdown('##### 🔭 Bring your data')
-    st.write(
-        'Upload OGIP-format `src` / `bkg` / `rsp` (or `rmf` + `arf`); '
-        'pick statistic, noticing, grouping, rebinning per unit.'
-    )
-with f2.container(border=True):
-    st.markdown('##### 🌈 Compose your model')
-    st.write(
-        'Select components from local / Astromodels / XSPEC, '
-        'or paste your own Python class. Combine with `+ - * /`.'
-    )
-with f3.container(border=True):
-    st.markdown('##### 📝 Run inference')
-    st.write(
-        'Pair Data ↔ Model, manually fit, then run a Bayesian sampler '
-        'or maximum-likelihood optimizer with one click.'
-    )
+st.markdown('#### Quickstart')
+st.markdown(
+    '<div class="bsp-quickstart">'
+    '  <div class="bsp-qs-card">'
+    '    <div class="bsp-qs-num">1</div>'
+    '    <div class="bsp-qs-emoji">🔭</div>'
+    '    <div class="bsp-qs-title">Bring your data</div>'
+    '    <div class="bsp-qs-body">Upload OGIP-format <code>src</code> / '
+    '<code>bkg</code> / <code>rsp</code> (or <code>rmf</code> + <code>arf</code>); '
+    'pick statistic, noticing, grouping per unit.</div>'
+    '    <a href="/data" target="_self" class="bsp-qs-link">Go to Data →</a>'
+    '  </div>'
+    '  <div class="bsp-qs-arrow">›</div>'
+    '  <div class="bsp-qs-card">'
+    '    <div class="bsp-qs-num">2</div>'
+    '    <div class="bsp-qs-emoji">🌈</div>'
+    '    <div class="bsp-qs-title">Compose your model</div>'
+    '    <div class="bsp-qs-body">Pick components from local / Astromodels / '
+    'XSPEC, or paste your own Python class. Combine with '
+    '<code>+ − * /</code>.</div>'
+    '    <a href="/model" target="_self" class="bsp-qs-link">Go to Model →</a>'
+    '  </div>'
+    '  <div class="bsp-qs-arrow">›</div>'
+    '  <div class="bsp-qs-card">'
+    '    <div class="bsp-qs-num">3</div>'
+    '    <div class="bsp-qs-emoji">📝</div>'
+    '    <div class="bsp-qs-title">Run inference</div>'
+    '    <div class="bsp-qs-body">Pair Data ↔ Model, manually fit, then run '
+    'a Bayesian sampler or max-likelihood optimizer with one click.</div>'
+    '    <a href="/infer" target="_self" class="bsp-qs-link">Go to Inference →</a>'
+    '  </div>'
+    '</div>',
+    unsafe_allow_html=True,
+)
 
 st.write('')
 

@@ -206,6 +206,37 @@ for mi, model_key in enumerate(st.session_state.model.keys()):
 
         component_keys = [f'component{mi + 1}-{i + 1}' for i in range(ncomponent)]
         expression_key = 'model expression'
+
+        # Clone-last-component button: duplicates the library / name /
+        # cfg / par snapshot of the last component into a fresh slot
+        # and bumps ncomponent.
+        if st.button(
+            "📋  Clone last component's settings into a new component",
+            key=f'{model_key}_clone_comp',
+            use_container_width=True,
+            help=(
+                'Duplicates library, name, configuration and parameter '
+                f'values from component{ncomponent} into a fresh slot.'
+            ),
+        ):
+            old_prefix = f'{model_key}_component{mi + 1}-{ncomponent}_'
+            new_prefix = f'{model_key}_component{mi + 1}-{ncomponent + 1}_'
+            for k in list(st.session_state.model_state.keys()):
+                if not k.startswith(old_prefix):
+                    continue
+                suffix = k[len(old_prefix):]
+                st.session_state.model_state[new_prefix + suffix] = (
+                    st.session_state.model_state[k]
+                )
+                st.session_state.pop(new_prefix + suffix, None)
+            st.session_state.model_state[f'{model_key}_ncomponent'] = ncomponent + 1
+            st.session_state.pop(f'{model_key}_ncomponent', None)
+            # Drop the composed-model expression so the user re-confirms
+            # the new addition.
+            st.session_state.model_state.pop(f'{model_key}_expression', None)
+            st.session_state.pop(f'{model_key}_expression', None)
+            st.rerun()
+
         all_tabs = st.tabs([*component_keys, expression_key])
         component_tabs = all_tabs[:-1]
         expression_tab = all_tabs[-1]

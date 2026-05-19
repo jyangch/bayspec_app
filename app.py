@@ -747,6 +747,94 @@ GLOBAL_CSS = """
     .bsp-mini-step.active .bsp-mini-dot { color: var(--bsp-primary); }
     .bsp-mini-step.active .bsp-mini-title { color: var(--bsp-primary); }
 
+    /* Quickstart cards on Home page */
+    .bsp-quickstart {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr auto 1fr;
+        align-items: stretch;
+        gap: 0.55rem;
+        margin-bottom: 1rem;
+    }
+    .bsp-qs-card {
+        display: flex;
+        flex-direction: column;
+        padding: 1.1rem 1.05rem 0.95rem;
+        border-radius: 16px;
+        border: 1px solid var(--bsp-border);
+        background: linear-gradient(180deg, #FFFFFF 0%, var(--bsp-surface) 100%);
+        box-shadow: var(--bsp-shadow-sm);
+        transition: transform 0.15s ease, border-color 0.15s ease,
+                    box-shadow 0.15s ease;
+    }
+    .bsp-qs-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--bsp-primary);
+        box-shadow: var(--bsp-shadow-md);
+    }
+    .bsp-qs-num {
+        align-self: flex-start;
+        width: 1.75rem;
+        height: 1.75rem;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--bsp-primary) 0%, var(--bsp-primary-soft) 100%);
+        color: #FFFFFF;
+        font-weight: 800;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.95rem;
+        margin-bottom: 0.55rem;
+    }
+    .bsp-qs-emoji { font-size: 1.4rem; margin-bottom: 0.3rem; }
+    .bsp-qs-title {
+        font-weight: 700;
+        font-size: 1.05rem;
+        color: var(--bsp-text);
+        margin-bottom: 0.35rem;
+    }
+    .bsp-qs-body {
+        color: var(--bsp-text-muted);
+        font-size: 0.92rem;
+        line-height: 1.45;
+        flex: 1;
+        margin-bottom: 0.7rem;
+    }
+    .bsp-qs-body code {
+        background-color: var(--bsp-surface-2);
+        padding: 0.05rem 0.32rem;
+        border-radius: 4px;
+        font-size: 0.85rem;
+        color: var(--bsp-text);
+    }
+    .bsp-qs-link {
+        align-self: flex-start;
+        color: var(--bsp-primary);
+        font-weight: 600;
+        font-size: 0.92rem;
+        text-decoration: none;
+        padding: 0.3rem 0.6rem;
+        border-radius: 8px;
+        background-color: rgba(79, 70, 229, 0.06);
+        transition: background-color 0.15s ease, color 0.15s ease;
+    }
+    .bsp-qs-link:hover {
+        background-color: rgba(79, 70, 229, 0.12);
+        color: var(--bsp-primary-hover);
+        text-decoration: none;
+    }
+    .bsp-qs-arrow {
+        align-self: center;
+        font-size: 2.2rem;
+        font-weight: 300;
+        color: var(--bsp-border);
+        line-height: 1;
+        user-select: none;
+    }
+    @media (max-width: 1024px) {
+        .bsp-quickstart { grid-template-columns: 1fr; gap: 0.5rem; }
+        .bsp-qs-arrow { display: none; }
+    }
+
     /* Page header block (eyebrow + subtitle pair used on Data/Model/Infer) */
     .bsp-page-eyebrow {
         display: inline-block;

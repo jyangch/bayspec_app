@@ -188,6 +188,37 @@ for di, data_key in enumerate(st.session_state.data.keys()):
             st.session_state.model_state[f"{model_key}_data"] = data_key
 
         unit_keys = [f"unit{di + 1}-{i + 1}" for i in range(nunit)]
+
+        # Clone-last-unit button: copies every config field from the last
+        # unit slot to a new slot, then bumps nunit. File uploads cannot
+        # be cloned (UploadedFile handles are not safe to duplicate), so
+        # the user re-attaches them.
+        if st.button(
+            "📋  Clone last unit's settings into a new unit",
+            key=f"{data_key}_clone_unit",
+            use_container_width=True,
+            help=(
+                "Duplicates statistic / noticing / grouping / rebinning / time "
+                f"from unit{nunit} into a fresh slot."
+            ),
+        ):
+            old_prefix = f"{data_key}_unit{di + 1}-{nunit}_"
+            new_prefix = f"{data_key}_unit{di + 1}-{nunit + 1}_"
+            file_suffixes = {"spec", "src", "bkg", "rsp", "rmf", "arf"}
+            for k in list(st.session_state.data_state.keys()):
+                if not k.startswith(old_prefix):
+                    continue
+                suffix = k[len(old_prefix):]
+                if suffix in file_suffixes:
+                    continue
+                st.session_state.data_state[new_prefix + suffix] = (
+                    st.session_state.data_state[k]
+                )
+                st.session_state.pop(new_prefix + suffix, None)
+            st.session_state.data_state[f"{data_key}_nunit"] = nunit + 1
+            st.session_state.pop(f"{data_key}_nunit", None)
+            st.rerun()
+
         unit_tabs = st.tabs(unit_keys)
 
         for unit_key, unit_tab in zip(unit_keys, unit_tabs, strict=False):
