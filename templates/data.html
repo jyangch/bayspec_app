@@ -28,4 +28,21 @@
 </div>
 
 {% include "partials/data_list.html" %}
+
+<nav class="page-nav" aria-label="Page navigation">
+  <a class="page-nav-link page-nav-prev" href="/">
+    <span class="page-nav-arrow">←</span>
+    <span class="page-nav-body">
+      <span class="page-nav-label">Back to</span>
+      <span class="page-nav-title">Home</span>
+    </span>
+  </a>
+  <a class="page-nav-link page-nav-next" href="/model">
+    <span class="page-nav-body">
+      <span class="page-nav-label">Next</span>
+      <span class="page-nav-title">Model</span>
+    </span>
+    <span class="page-nav-arrow">→</span>
+  </a>
+</nav>
 {% endblock %}
