@@ -42,15 +42,24 @@
         <!-- Icon tile -->
         <rect x="2" y="2" width="48" height="48" rx="12" fill="url(#logo-grad)"/>
 
-        <!-- 2D credible region: three nested rotated ellipses with
-             decreasing translucency (3σ → 2σ → 1σ) reading as a joint
-             posterior contour. Center dot pins the best-fit. -->
-        <g transform="rotate(-28, 26, 26)">
-          <ellipse cx="26" cy="26" rx="15" ry="10"  fill="#FFF" opacity="0.18"/>
-          <ellipse cx="26" cy="26" rx="11" ry="7.0" fill="#FFF" opacity="0.32"/>
-          <ellipse cx="26" cy="26" rx="7"  ry="4.5" fill="#FFF" opacity="0.58"/>
+        <!-- 2D credible region (posterior contour): three nested rotated
+             ellipses with decreasing translucency (3σ → 2σ → 1σ). Centre
+             dot pins the best-fit. Sits in the upper half of the tile. -->
+        <g transform="rotate(-28, 25, 19)">
+          <ellipse cx="25" cy="19" rx="13.5" ry="8.5" fill="#FFF" opacity="0.18"/>
+          <ellipse cx="25" cy="19" rx="10"   ry="6"   fill="#FFF" opacity="0.32"/>
+          <ellipse cx="25" cy="19" rx="6.5"  ry="4"   fill="#FFF" opacity="0.58"/>
         </g>
-        <circle cx="26" cy="26" r="1.9" fill="#FFF"/>
+        <circle cx="25" cy="19" r="1.8" fill="#FFF"/>
+
+        <!-- Data + model strip along the bottom: a Band-function-style
+             best-fit curve threaded through three observed data points. -->
+        <path d="M 7 41 C 13 40, 14 33, 18 33 C 28 33, 33 39, 44 38"
+              stroke="#FFF" stroke-width="1.3" stroke-opacity="0.85"
+              fill="none" stroke-linecap="round"/>
+        <circle cx="12" cy="38"   r="1.1" fill="#FFF" opacity="0.95"/>
+        <circle cx="22" cy="35"   r="1.1" fill="#FFF" opacity="0.95"/>
+        <circle cx="36" cy="38.5" r="1.1" fill="#FFF" opacity="0.95"/>
 
         <!-- Wordmark in matching indigo→cyan gradient -->
         <text x="62" y="35"
