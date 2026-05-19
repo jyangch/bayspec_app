@@ -44,36 +44,32 @@
   </div>
 </div>
 
-<!-- Feature cards -->
-<h4>What you can do</h4>
-<div class="feature-grid">
-  <div class="feature-card">
-    <div class="feature-icon">
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round">
-        <ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4.03 3 9 3s9-1.34 9-3"/>
-      </svg>
-    </div>
-    <h3>Bring your data</h3>
-    <p>Upload OGIP-format <code>src</code> / <code>bkg</code> / <code>rsp</code> (or <code>rmf</code> + <code>arf</code>). Configure fit statistic, notice energy, grouping, and rebinning per unit. Supports multi-wavelength observations.</p>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon">
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round">
-        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-      </svg>
-    </div>
-    <h3>Compose your model</h3>
-    <p>Pick model components from local, Astromodels, or XSPEC libraries, or write your own in Python. Combine with <code>+ − × ÷</code> operators to build arbitrary composite models.</p>
-  </div>
-  <div class="feature-card">
-    <div class="feature-icon">
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="var(--primary)" stroke-width="1.8" stroke-linecap="round">
-        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>
-      </svg>
-    </div>
-    <h3>Run inference</h3>
-    <p>Pair Data ↔ Model, manually adjust parameters and inspect the fit statistic, then launch a Bayesian sampler or ML optimizer. Posterior summaries, corner plots, and fitted spectra are rendered automatically.</p>
-  </div>
+<!-- Quickstart cards (3-step guided entry) -->
+<h4>Quickstart</h4>
+<div class="quickstart">
+  <a class="qs-card" href="/data">
+    <span class="qs-num">1</span>
+    <span class="qs-emoji" aria-hidden="true">🔭</span>
+    <span class="qs-title">Bring your data</span>
+    <span class="qs-body">Upload OGIP-format <code>src</code> / <code>bkg</code> / <code>rsp</code> (or <code>rmf</code> + <code>arf</code>); pick statistic, notice energy, grouping, and rebinning per unit.</span>
+    <span class="qs-link">Go to Data →</span>
+  </a>
+  <span class="qs-arrow" aria-hidden="true">›</span>
+  <a class="qs-card" href="/model">
+    <span class="qs-num">2</span>
+    <span class="qs-emoji" aria-hidden="true">🌈</span>
+    <span class="qs-title">Compose your model</span>
+    <span class="qs-body">Pick components from local / Astromodels / XSPEC, or paste your own Python class. Combine with <code>+ − × ÷</code>.</span>
+    <span class="qs-link">Go to Model →</span>
+  </a>
+  <span class="qs-arrow" aria-hidden="true">›</span>
+  <a class="qs-card" href="/infer">
+    <span class="qs-num">3</span>
+    <span class="qs-emoji" aria-hidden="true">📝</span>
+    <span class="qs-title">Run inference</span>
+    <span class="qs-body">Pair Data ↔ Model, manually fit, then run a Bayesian sampler or max-likelihood optimizer with one click.</span>
+    <span class="qs-link">Go to Inference →</span>
+  </a>
 </div>
 
 <!-- Installation -->
