@@ -98,6 +98,46 @@ def _result_zip_bytes(
     return buf.getvalue()
 
 
+def _posterior_metric_cards(post) -> None:
+    """Per-parameter best-fit value + asymmetric 1σ band as st.metric tiles.
+
+    Falls back to a single muted line if the posterior does not expose
+    the expected best/CI vectors (e.g. partial bootstrap results).
+    """
+    try:
+        plabels = list(post.clean_free_plabels)
+        bests = list(post.par_best)
+        cis = list(post.par_Isigma)
+    except Exception:
+        st.caption('Posterior summary statistics unavailable for this run.')
+        return
+
+    n = len(plabels)
+    if n == 0:
+        st.caption('No free parameters to summarise.')
+        return
+
+    per_row = 4
+    for start in range(0, n, per_row):
+        row = plabels[start: start + per_row]
+        cols = st.columns(len(row))
+        for i, label in enumerate(row):
+            j = start + i
+            try:
+                lo, hi = float(cis[j][0]), float(cis[j][1])
+                best = float(bests[j])
+                err_hi = abs(hi - best)
+                err_lo = abs(best - lo)
+                cols[i].metric(
+                    label=str(label),
+                    value=f'{best:.3g}',
+                    delta=f'+{err_hi:.2g} / −{err_lo:.2g}',
+                    delta_color='off',
+                )
+            except (ValueError, TypeError, IndexError):
+                cols[i].metric(label=str(label), value='—')
+
+
 def _download_fig_row(fig, stem: str, key_prefix: str) -> None:
     """Three download buttons (HTML + PNG + SVG) under a Plotly chart.
 
@@ -586,7 +626,13 @@ with st.expander('***Manual fitting***', expanded=True):
     # Apply every edit (Value / Frozen) from both tables into the underlying
     # Par objects. The order matters only insofar as the last write wins;
     # the two tables never share par#s in a single rerun.
-    for _, row in pd.concat([active_df, frozen_df], ignore_index=True).to_dict('index').items():
+    edit_frames = [df for df in (active_df, frozen_df) if not df.empty]
+    merged = (
+        pd.concat(edit_frames, ignore_index=True)
+        if edit_frames
+        else pd.DataFrame()
+    )
+    for _, row in merged.to_dict('index').items():
         par_obj = infer.par[row['par#']]
         try:
             par_obj.val = float(row['Value'])
@@ -604,13 +650,20 @@ with st.expander('***Manual fitting***', expanded=True):
         st.dataframe(stat_df, use_container_width=True, hide_index=True)
 
     with plot_col:
-        fig = Plot.infer(infer, style='CE')
-        st.plotly_chart(
-            fig.fig,
-            theme='streamlit',
-            use_container_width=True,
-            key='manual_ctsspec_fig',
-        )
+        try:
+            fig = Plot.infer(infer, style='CE')
+            st.plotly_chart(
+                fig.fig,
+                theme='streamlit',
+                use_container_width=True,
+                key='manual_ctsspec_fig',
+            )
+        except Exception as exc:
+            empty_card(
+                '⚠️',
+                'Counts plot unavailable',
+                f'Could not build the manual-fit spectrum: <code>{exc}</code>',
+            )
 
 with st.expander('***Inference***', expanded=True):
     run_col, _, post_col = st.columns([4.9, 0.2, 4.9])
@@ -915,6 +968,9 @@ with st.expander('***Inference***', expanded=True):
                 stat_df = _info_df(post.stat_info)
                 IC_df = _info_df(post.IC_info)
 
+                st.markdown('**Best-fit summary**')
+                _posterior_metric_cards(post)
+
                 st.markdown('**Free parameters**')
                 st.dataframe(free_par_df, use_container_width=True, hide_index=True)
                 st.download_button(
@@ -1031,50 +1087,57 @@ with st.expander('***Inference***', expanded=True):
                 )
 
                 if comp_keys:
-                    modelplot = Plot.model(style=style, post=True)
-                    comp_tabs = st.tabs([str(comp) for comp in comp_keys])
-                    for comp_key, comp_tab in zip(comp_keys, comp_tabs, strict=False):
-                        comp = all_comps[comp_key]
-                        with comp_tab:
-                            er_key = f'post_{comp_key}_erange'
-                            set_ini(er_key, (0, 4))
-                            erange = st.slider(
-                                'Energy range (log10 keV)',
-                                -1,
-                                5,
-                                value=get_val(er_key),
-                                key=er_key,
-                            )
-                            earr = np.logspace(erange[0], erange[1], 300)
-
-                            if comp.type == 'add':
-                                ep_key = f'post_{comp_key}_epoch'
-                                set_ini(ep_key, '')
-                                epoch_str = st.text_input(
-                                    'Spectral time (optional)',
-                                    value=get_val(ep_key),
-                                    placeholder='leave blank if time-independent',
-                                    key=ep_key,
+                    try:
+                        modelplot = Plot.model(style=style, post=True)
+                        comp_tabs = st.tabs([str(comp) for comp in comp_keys])
+                        for comp_key, comp_tab in zip(
+                            comp_keys, comp_tabs, strict=False
+                        ):
+                            comp = all_comps[comp_key]
+                            with comp_tab:
+                                er_key = f'post_{comp_key}_erange'
+                                set_ini(er_key, (0, 4))
+                                erange = st.slider(
+                                    'Energy range (log10 keV)',
+                                    -1,
+                                    5,
+                                    value=get_val(er_key),
+                                    key=er_key,
                                 )
-                                tarr = None
-                                if epoch_str:
-                                    try:
-                                        tarr = float(epoch_str) * np.ones_like(earr)
-                                    except (ValueError, TypeError):
-                                        st.error(
-                                            'Spectral time must be a number.',
-                                            icon='🚨',
-                                        )
-                            else:
-                                tarr = None
+                                earr = np.logspace(erange[0], erange[1], 300)
 
-                            modelplot.add_model(comp, earr, tarr)
+                                tarr = None
+                                if comp.type == 'add':
+                                    ep_key = f'post_{comp_key}_epoch'
+                                    set_ini(ep_key, '')
+                                    epoch_str = st.text_input(
+                                        'Spectral time (optional)',
+                                        value=get_val(ep_key),
+                                        placeholder='leave blank if time-independent',
+                                        key=ep_key,
+                                    )
+                                    if epoch_str:
+                                        try:
+                                            tarr = float(epoch_str) * np.ones_like(earr)
+                                        except (ValueError, TypeError):
+                                            st.error(
+                                                'Spectral time must be a number.',
+                                                icon='🚨',
+                                            )
 
-                    fig = modelplot.get_fig()
-                    st.plotly_chart(
-                        fig.fig,
-                        theme='streamlit',
-                        use_container_width=True,
-                        key='infer_model_fig',
-                    )
-                    _download_fig_row(fig.fig, 'model_spectra', 'post_model')
+                                modelplot.add_model(comp, earr, tarr)
+
+                        fig = modelplot.get_fig()
+                        st.plotly_chart(
+                            fig.fig,
+                            theme='streamlit',
+                            use_container_width=True,
+                            key='infer_model_fig',
+                        )
+                        _download_fig_row(fig.fig, 'model_spectra', 'post_model')
+                    except Exception as exc:
+                        empty_card(
+                            '⚠️',
+                            'Model spectrum unavailable',
+                            f'Could not build the model spectrum: <code>{exc}</code>',
+                        )
