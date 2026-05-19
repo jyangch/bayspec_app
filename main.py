@@ -1447,6 +1447,122 @@ async def clear_history(request: Request):
     return _render_infer_panel(s, request)
 
 
+def _run_comparison_table(history: list) -> tuple[list[str], dict[str, dict[str, str]]]:
+    """Build (column labels, {param: {col: cell}}) from history entries.
+
+    Each cell is "best  +hi/−lo" if the posterior exposes par_best /
+    par_Isigma; otherwise an em-dash. Columns are newest-first ("#3 ·
+    emcee · 12:00:00" pattern); rows are the union of free parameters
+    across every entry.
+    """
+    cols: list[str] = []
+    rows: dict[str, dict[str, str]] = {}
+
+    n = len(history)
+    for i, entry in enumerate(history):
+        col_label = f'#{n - i} · {entry.get("sampler", "?")} · {entry.get("when", "?")}'
+        cols.append(col_label)
+        post = entry.get('posterior')
+        if post is None:
+            continue
+        try:
+            plabels = list(post.clean_free_plabels)
+            bests = list(post.par_best)
+            cis = list(post.par_Isigma)
+        except Exception:
+            continue
+        for j, lbl in enumerate(plabels):
+            try:
+                best = float(bests[j])
+                lo, hi = float(cis[j][0]), float(cis[j][1])
+                cell = f'{best:.3g}  +{abs(hi - best):.2g}/−{abs(best - lo):.2g}'
+            except (ValueError, TypeError, IndexError):
+                cell = '—'
+            rows.setdefault(str(lbl), {})[col_label] = cell
+
+    return cols, rows
+
+
+@app.get('/infer/compare', response_class=HTMLResponse)
+async def compare_runs(request: Request):
+    """Render the run-comparison table fragment (lazy-loaded by the tab)."""
+    _, s, _ = _session(request)
+    history = s['infer_state'].get('history', [])
+    if len(history) < 2:
+        return HTMLResponse(
+            '<div class="ptab-empty">Need at least two completed runs to compare. '
+            'Run inference again to add another entry to the history.</div>'
+        )
+
+    cols, rows = _run_comparison_table(history)
+    if not rows:
+        return HTMLResponse(
+            '<div class="ptab-empty">Stored runs do not expose comparable '
+            'best-fit values yet.</div>'
+        )
+
+    head = ''.join(f'<th>{c}</th>' for c in cols)
+    body_lines = []
+    for param, row in rows.items():
+        cells = ''.join(
+            f'<td class="param-name">{row.get(c, "—")}</td>' for c in cols
+        )
+        body_lines.append(
+            f'<tr><td class="param-name"><strong>{param}</strong></td>{cells}</tr>'
+        )
+    body = ''.join(body_lines)
+
+    return HTMLResponse(
+        f'<div class="compare-table-wrap">'
+        f'  <table class="param-table compare-table">'
+        f'    <thead><tr><th>Parameter</th>{head}</tr></thead>'
+        f'    <tbody>{body}</tbody>'
+        f'  </table>'
+        f'  <a class="ptab-download" href="/infer/compare.csv" download>'
+        f'    <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" '
+        f'style="flex-shrink:0">'
+        f'<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm6.293-13.707a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 6.414V13a1 1 0 11-2 0V6.414L7.707 7.707a1 1 0 01-1.414-1.414l4-4z" clip-rule="evenodd"/>'
+        f'</svg>'
+        f'    Download comparison CSV'
+        f'  </a>'
+        f'</div>'
+    )
+
+
+@app.get('/infer/compare.csv')
+async def compare_runs_csv(request: Request):
+    """Export the comparison table as CSV."""
+    _, s, _ = _session(request)
+    history = s['infer_state'].get('history', [])
+    if len(history) < 2:
+        return PlainTextResponse(
+            'Need at least two completed runs to compare.', status_code=404
+        )
+
+    cols, rows = _run_comparison_table(history)
+    if not rows:
+        return PlainTextResponse(
+            'Stored runs do not expose comparable best-fit values.',
+            status_code=404,
+        )
+
+    # Build CSV body in memory — no Python csv module to keep deps minimal,
+    # and our cells are guaranteed comma- and quote-free.
+    lines = ['Parameter,' + ','.join(c.replace(',', ';') for c in cols)]
+    for param, row in rows.items():
+        cells = ','.join(row.get(c, '—').replace(',', ';') for c in cols)
+        lines.append(f'{param.replace(",", ";")},{cells}')
+    csv_body = '\n'.join(lines) + '\n'
+
+    return PlainTextResponse(
+        csv_body,
+        media_type='text/csv',
+        headers={
+            'Content-Disposition': 'attachment; filename="run_comparison.csv"',
+        },
+    )
+
+
 @app.post('/infer/run', response_class=HTMLResponse)
 async def run_infer(
     request: Request,

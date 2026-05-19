@@ -1272,6 +1272,31 @@ details.infer-collapse > .infer-collapse-body { margin-top: 1rem; }
   font-size: .9rem;
 }
 
+/* Run comparison table (wide; one column per stored run) */
+.compare-table-wrap {
+  overflow-x: auto;
+  margin-top: .5rem;
+}
+.compare-table {
+  font-size: .85rem;
+  min-width: 100%;
+}
+.compare-table th {
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .78rem;
+  background: var(--surface);
+}
+.compare-table td.param-name {
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  font-size: .82rem;
+}
+.compare-table-wrap > .ptab-download {
+  margin-top: .8rem;
+  display: inline-flex;
+}
+
 /* Posterior result tables (par / stat / IC) laid out side-by-side when wide */
 .posterior-result-grid {
   display: grid;
