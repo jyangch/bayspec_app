@@ -1,5 +1,94 @@
+import json
+
 from st_pages import add_page_title, get_nav_from_toml
 import streamlit as st
+
+_SKIP = object()
+
+
+def _strip(v):
+    """Recursively coerce ``v`` to a JSON-safe structure.
+
+    Anything that isn't ``str|int|float|bool|None|list|tuple|dict`` is
+    dropped (so DataFrames, UploadedFile handles, Posterior objects etc.
+    silently disappear without breaking the dump).
+    """
+    if isinstance(v, (str, int, float, bool, type(None))):
+        return v
+    if isinstance(v, (list, tuple)):
+        out = []
+        for x in v:
+            sx = _strip(x)
+            if sx is _SKIP:
+                continue
+            out.append(sx)
+        return out
+    if isinstance(v, dict):
+        out = {}
+        for k, x in v.items():
+            sx = _strip(x)
+            if sx is _SKIP:
+                continue
+            out[str(k)] = sx
+        return out
+    return _SKIP
+
+
+def export_config_bytes() -> bytes:
+    """Bundle the JSON-safe parts of session_state into a config blob."""
+    data_state = dict(st.session_state.get('data_state', {}))
+    model_state = dict(st.session_state.get('model_state', {}))
+    infer_state = {
+        k: v
+        for k, v in st.session_state.get('infer_state', {}).items()
+        # ``post`` (Posterior object) and the on-the-fly DataFrames are
+        # not portable; everything else round-trips fine.
+        if k not in ('post',)
+    }
+    cfg = {
+        'version': 1,
+        'data_state': _strip(data_state),
+        'model_state': _strip(model_state),
+        'infer_state': _strip(infer_state),
+    }
+    return json.dumps(cfg, indent=2).encode('utf-8')
+
+
+def import_config_bytes(blob: bytes) -> tuple[bool, str]:
+    """Replace the configuration dicts from a previously-exported blob.
+
+    Returns ``(ok, message)``. On success, the page reruns so widget
+    keys pick up the new values; uploaded FITS files still need to be
+    re-attached because they cannot be serialised.
+    """
+    try:
+        cfg = json.loads(blob.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return False, f'Could not parse config JSON: {exc}'
+
+    if not isinstance(cfg, dict) or cfg.get('version') != 1:
+        return False, 'Unsupported config version (expected 1).'
+
+    for state_key in ('data_state', 'model_state', 'infer_state'):
+        loaded = cfg.get(state_key)
+        if not isinstance(loaded, dict):
+            continue
+        target = st.session_state.setdefault(state_key, {})
+        target.clear()
+        target.update(loaded)
+        # Mirror primitives back into the top-level so widgets re-read
+        # them on the next rerun.
+        for k, v in loaded.items():
+            if isinstance(v, (str, int, float, bool, type(None), list)):
+                st.session_state[k] = v
+
+    # Drop derived caches the import cannot re-create.
+    st.session_state['data'] = {}
+    st.session_state['model'] = {}
+    st.session_state['model_component'] = {}
+    st.session_state['infer'] = None
+
+    return True, 'Configuration loaded — re-upload any FITS files to complete the setup.'
 
 
 def init_session_state():
@@ -63,11 +152,25 @@ def _workflow_state() -> list[tuple[str, str, bool, str]]:
 
 
 def render_workflow_sidebar() -> None:
-    """Render the workflow mini-stepper inside ``st.sidebar``."""
+    """Render the workflow mini-stepper inside ``st.sidebar``.
+
+    The first not-yet-done stage gets the ``active`` class so the user
+    sees, at a glance, what the next action is.
+    """
     stages = _workflow_state()
+    # First pending stage becomes the "active" one.
+    active_idx = next((i for i, s in enumerate(stages) if not s[2]), -1)
     rows = []
-    for emoji, title, done, cap in stages:
-        cls = 'bsp-mini-step done' if done else 'bsp-mini-step'
+    for i, (emoji, title, done, cap) in enumerate(stages):
+        if done:
+            cls = 'bsp-mini-step done'
+            dot = '●'
+        elif i == active_idx:
+            cls = 'bsp-mini-step active'
+            dot = '◉'
+        else:
+            cls = 'bsp-mini-step'
+            dot = '○'
         rows.append(
             f'<div class="{cls}">'
             f'  <span class="bsp-mini-emoji">{emoji}</span>'
@@ -75,7 +178,7 @@ def render_workflow_sidebar() -> None:
             f'    <span class="bsp-mini-title">{title}</span>'
             f'    <span class="bsp-mini-caption">{cap}</span>'
             f'  </span>'
-            f'  <span class="bsp-mini-dot">{"●" if done else "○"}</span>'
+            f'  <span class="bsp-mini-dot">{dot}</span>'
             f'</div>'
         )
     st.markdown(
@@ -605,6 +708,17 @@ GLOBAL_CSS = """
         border-color: rgba(16, 185, 129, 0.30);
         background-color: rgba(16, 185, 129, 0.05);
     }
+    .bsp-mini-step.active {
+        border-color: var(--bsp-primary);
+        background:
+            linear-gradient(135deg, rgba(79, 70, 229, 0.08) 0%, rgba(6, 182, 212, 0.06) 100%),
+            #FFFFFF;
+        animation: bsp-mini-pulse 1.8s ease-in-out infinite;
+    }
+    @keyframes bsp-mini-pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(79, 70, 229, 0.30); }
+        50%      { box-shadow: 0 0 0 6px rgba(79, 70, 229, 0.00); }
+    }
     .bsp-mini-emoji { font-size: 1.05rem; line-height: 1; }
     .bsp-mini-body {
         display: flex;
@@ -630,6 +744,8 @@ GLOBAL_CSS = """
         color: var(--bsp-border);
     }
     .bsp-mini-step.done .bsp-mini-dot { color: var(--bsp-success); }
+    .bsp-mini-step.active .bsp-mini-dot { color: var(--bsp-primary); }
+    .bsp-mini-step.active .bsp-mini-title { color: var(--bsp-primary); }
 
     /* Page header block (eyebrow + subtitle pair used on Data/Model/Infer) */
     .bsp-page-eyebrow {
@@ -690,6 +806,38 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
     render_workflow_sidebar()
+    st.divider()
+
+    st.markdown(
+        '<div class="bsp-mini-stepper-head">Configuration</div>',
+        unsafe_allow_html=True,
+    )
+    st.download_button(
+        '⬇️  Save config (.json)',
+        data=export_config_bytes(),
+        file_name='bayspec_config.json',
+        mime='application/json',
+        use_container_width=True,
+        key='cfg_download',
+        help='Bundle every UI choice (notc, stat, grpg, priors, sampler '
+        'settings…) into a JSON file. FITS uploads are not included; '
+        'attach them again after loading.',
+    )
+    uploaded_cfg = st.file_uploader(
+        'Load config (.json)',
+        type=['json'],
+        key='cfg_upload',
+        label_visibility='collapsed',
+    )
+    if uploaded_cfg is not None and st.session_state.get('_last_cfg') != uploaded_cfg.name:
+        ok, msg = import_config_bytes(uploaded_cfg.getvalue())
+        st.session_state['_last_cfg'] = uploaded_cfg.name
+        if ok:
+            st.success(msg, icon='✅')
+            st.rerun()
+        else:
+            st.error(msg, icon='🚨')
+
     st.divider()
 
 nav = get_nav_from_toml('.streamlit/pages.toml')
