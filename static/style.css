@@ -1737,9 +1737,13 @@ details[open] .howto-summary::before { transform: rotate(90deg); }
   font-size: .85rem;
 }
 
-/* ===== Page prev/next nav (Data / Model / Inference) ===== */
-.page-nav {
+/* ===== Page prev/next nav (Data / Model / Inference) =====
+ * The generic `nav { flex-direction: column }` + `nav a { padding,
+ * transform, gradient }` rules above are for the sidebar; we need
+ * to reset them here so the prev/next pair sits as a single row. */
+nav.page-nav {
   display: flex;
+  flex-direction: row;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
@@ -1747,21 +1751,27 @@ details[open] .howto-summary::before { transform: rotate(90deg); }
   padding-top: 1rem;
   border-top: 1px solid var(--border-soft);
 }
-.page-nav-link {
+nav.page-nav .page-nav-link {
   display: inline-flex;
   align-items: baseline;
   gap: .4rem;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
   font-size: .95rem;
   font-weight: 600;
   color: var(--text-muted);
   text-decoration: none;
   transition: color .15s;
 }
-.page-nav-link:hover {
+nav.page-nav .page-nav-link:hover {
   color: var(--primary);
+  background: none;
   text-decoration: none;
+  transform: none;
 }
-.page-nav-arrow {
+nav.page-nav .page-nav-arrow {
   font-size: 1rem;
   font-weight: 500;
 }
