@@ -1531,6 +1531,59 @@ details[open] .howto-summary::before { transform: rotate(90deg); }
 .sidebar-version a { color: var(--text-muted); font-size: .75rem; }
 .sidebar-version a:hover { color: var(--primary); }
 
+/* ===== Sidebar config (Save / Load) ===== */
+.sidebar-config { display: flex; flex-direction: column; gap: .25rem; }
+.sidebar-config .config-btn {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .45rem .65rem;
+  margin: .1rem 0;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--bg);
+  color: var(--text);
+  font-size: .85rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: border-color .15s ease, color .15s ease, background-color .15s ease;
+}
+.sidebar-config .config-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background-color: var(--surface);
+}
+.sidebar-config .config-btn .nav-icon {
+  width: 14px; height: 14px; flex-shrink: 0; opacity: .7;
+}
+.sidebar-config .config-btn:hover .nav-icon { opacity: 1; }
+
+.config-toast {
+  margin-top: .35rem;
+  padding: .45rem .6rem;
+  border-radius: var(--radius-sm);
+  font-size: .8rem;
+  line-height: 1.4;
+}
+.config-toast.ok {
+  border: 1px solid rgba(16, 185, 129, .35);
+  background-color: rgba(16, 185, 129, .08);
+  color: var(--alert-success-text);
+}
+.config-toast.error {
+  border: 1px solid rgba(239, 68, 68, .40);
+  background-color: rgba(239, 68, 68, .08);
+  color: var(--alert-danger-text);
+}
+.config-toast code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .76rem;
+  background-color: rgba(0,0,0,.04);
+  padding: .02rem .25rem;
+  border-radius: 3px;
+}
+
 /* ===== Plot placeholder ===== */
 .plot-placeholder {
   display: flex;

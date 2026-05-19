@@ -126,6 +126,40 @@
 
     {% block sidebar_extra %}{% endblock %}
 
+    <hr style="margin:.5rem 0" />
+
+    <!-- Save / Load session configuration -->
+    <div class="sidebar-config">
+      <span class="nav-section-label">Configuration</span>
+
+      <a class="config-btn" href="/config/export" download="bayspec_config.json"
+         title="Bundle every UI choice into a JSON file. FITS uploads are not included; re-attach them after loading.">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm6.293-13.707a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 6.414V13a1 1 0 11-2 0V6.414L7.707 7.707a1 1 0 01-1.414-1.414l4-4z" clip-rule="evenodd"/>
+        </svg>
+        Save config
+      </a>
+
+      <form id="config-import-form"
+            hx-post="/config/import"
+            hx-encoding="multipart/form-data"
+            hx-target="#config-import-toast"
+            hx-swap="innerHTML">
+        <label class="config-btn" for="config-file-input">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7.707 9.293a1 1 0 011.414 0L10 10.172l.879-.879a1 1 0 111.414 1.414L11.414 11.5l.879.879a1 1 0 11-1.414 1.414L10 12.914l-.879.879a1 1 0 01-1.414-1.414l.879-.879-.879-.879a1 1 0 010-1.414z" clip-rule="evenodd"/>
+          </svg>
+          Load config…
+        </label>
+        <input id="config-file-input" type="file" name="config_file"
+               accept=".json,application/json" style="display:none"
+               onchange="document.getElementById('config-import-form').requestSubmit()" />
+      </form>
+      <div id="config-import-toast"></div>
+    </div>
+
+    <hr style="margin:.5rem 0" />
+
     <!-- Version / links footer -->
     <div class="sidebar-version">
       <span>BaySpec</span>

@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import json
 from pathlib import Path
 import re
 import threading
@@ -7,7 +8,7 @@ import uuid
 
 from bayspec.model.local import local_models as _local_models
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -61,6 +62,38 @@ def _partial(name: str, request: Request, **ctx):
     if is_new:
         resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite='lax')
     return resp
+
+
+_CONFIG_SKIP = object()
+
+
+def _config_strip(v):
+    """Recursively coerce ``v`` to a JSON-safe structure.
+
+    Anything that is not ``str|int|float|bool|None|list|tuple|dict`` is
+    dropped silently, so non-portable values (Data/Model instances,
+    UploadFile handles, Posterior objects, numpy arrays, …) disappear
+    without breaking the export.
+    """
+    if isinstance(v, (str, int, float, bool, type(None))):
+        return v
+    if isinstance(v, (list, tuple)):
+        out = []
+        for x in v:
+            sx = _config_strip(x)
+            if sx is _CONFIG_SKIP:
+                continue
+            out.append(sx)
+        return out
+    if isinstance(v, dict):
+        out = {}
+        for k, x in v.items():
+            sx = _config_strip(x)
+            if sx is _CONFIG_SKIP:
+                continue
+            out[str(k)] = sx
+        return out
+    return _CONFIG_SKIP
 
 
 def _safe_key(key: str) -> str:
@@ -1797,3 +1830,101 @@ async def register_model(request: Request, code: str = Form(...)):
     names = ', '.join(new_classes.keys())
     est.update({'status': f'Registered: {names}', 'status_type': 'success'})
     return _render_editor_panel(request)
+
+
+# ---------- Session config export / import -----------------------------
+@app.get('/config/export')
+async def export_config(request: Request):
+    """Bundle the JSON-safe portion of the per-session state into a file.
+
+    Live objects (Data, Model, BayesInfer, Posterior, custom-model class
+    instances, etc.) are filtered out; what remains is every UI choice
+    and parameter value the user picked. Uploaded FITS spectra are not
+    portable and must be re-attached after import.
+    """
+    _, s, _ = _session(request)
+
+    payload = {
+        'version': 1,
+        'data_state': _config_strip(s.get('data_state', {})),
+        'model_state': _config_strip(s.get('model_state', {})),
+        'infer_state': _config_strip(
+            {
+                k: v
+                for k, v in s.get('infer_state', {}).items()
+                # posterior / result / stat_ic are live objects.
+                if k not in ('posterior', 'result', 'stat_ic')
+            }
+        ),
+        'editor_state': _config_strip(s.get('editor_state', {})),
+        # custom_models maps class name -> Python source string (added by
+        # the editor route). Source code is JSON-safe.
+        'custom_models_source': _config_strip(
+            {k: v for k, v in s.get('custom_models', {}).items() if isinstance(v, str)}
+        ),
+    }
+    body = json.dumps(payload, indent=2).encode('utf-8')
+    return Response(
+        content=body,
+        media_type='application/json',
+        headers={
+            'Content-Disposition': 'attachment; filename="bayspec_config.json"',
+        },
+    )
+
+
+@app.post('/config/import', response_class=HTMLResponse)
+async def import_config(request: Request, config_file: UploadFile = File(...)):
+    """Replace JSON-safe session dicts from a previously-exported file.
+
+    Returns a tiny HTMX fragment plus an HX-Refresh header so the active
+    page reloads with the imported values picked up by every form.
+    """
+    _, s, _ = _session(request)
+    blob = await config_file.read()
+
+    try:
+        cfg = json.loads(blob.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return HTMLResponse(
+            f'<div class="config-toast error">⚠️ Could not parse '
+            f'<code>{config_file.filename}</code>: {exc}</div>',
+            status_code=400,
+        )
+
+    if not isinstance(cfg, dict) or cfg.get('version') != 1:
+        return HTMLResponse(
+            '<div class="config-toast error">⚠️ Unsupported config '
+            'version (expected 1).</div>',
+            status_code=400,
+        )
+
+    for state_key in ('data_state', 'model_state', 'infer_state', 'editor_state'):
+        loaded = cfg.get(state_key)
+        if isinstance(loaded, dict):
+            target = s.setdefault(state_key, {})
+            target.clear()
+            target.update(loaded)
+
+    # Drop derived caches — they must be rebuilt from the imported intent.
+    s['data'] = {}
+    s['model'] = {}
+    s['model_component'] = {}
+    s['infer'] = None
+
+    # Re-load any custom-model source codes (they get registered into
+    # _local_models on the next /editor visit, where we have the right
+    # context. Just preserve the strings for now.)
+    custom_src = cfg.get('custom_models_source')
+    if isinstance(custom_src, dict):
+        s.setdefault('custom_models', {}).update(
+            {k: v for k, v in custom_src.items() if isinstance(v, str)}
+        )
+
+    # HX-Refresh tells HTMX to fully reload the current document so every
+    # template re-renders with the imported state.
+    return HTMLResponse(
+        '<div class="config-toast ok">✅ Configuration loaded. Re-upload '
+        'FITS spectra to complete the setup.</div>',
+        headers={'HX-Refresh': 'true'},
+    )
