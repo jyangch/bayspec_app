@@ -93,7 +93,8 @@ def _workflow_state(s: dict) -> list[dict]:
         ('Model',     caption(n_models, 'model'),    flags[1]),
         ('Pairs',     caption(n_pairs, 'pair'),      flags[2]),
         ('Inference', 'built' if has_built else 'pending', flags[3]),
-        ('Posterior', 'ready' if has_post else 'pending',  flags[4]),
+        # Matches the "Analyzer" wording used on the Inference page card.
+        ('Analyzer',  'ready' if has_post else 'pending',  flags[4]),
     ]
     out = []
     for i, (title, cap, done) in enumerate(raw):
@@ -1781,7 +1782,11 @@ async def run_infer(
         f'const st=document.getElementById("run-status-text");'
         f'const es=new EventSource("/infer/stream/{task_id}");'
         f'es.onmessage=function(e){{log.insertAdjacentHTML("beforeend",e.data);log.scrollTop=log.scrollHeight;st.textContent="Running\u2026";}};'
-        f'es.addEventListener("done",function(e){{es.close();document.getElementById("infer-panel").outerHTML=e.data;var np=document.getElementById("infer-panel");if(np)htmx.process(np);}});'
+        # Reload the full page on completion so the sidebar workflow
+        # indicator (and any other page-level state) refreshes alongside
+        # the infer panel. The server-side GET regenerates the same
+        # posterior view from infer_state, so nothing is lost.
+        f'es.addEventListener("done",function(){{es.close();window.location.reload();}});'
         f'es.onerror=function(){{es.close();st.textContent="Stream error \u2014 refresh to see results.";}};'
         f'}})();'
         f'</script>'

@@ -1774,7 +1774,7 @@ details[open] .howto-summary::before { transform: rotate(90deg); }
 .qs-card {
   display: flex;
   flex-direction: column;
-  padding: 1.1rem 1.05rem .95rem;
+  padding: 1.2rem 1.15rem 1rem;
   border-radius: 16px;
   border: 1px solid var(--border);
   background: linear-gradient(180deg, #FFFFFF 0%, var(--surface) 100%);
@@ -1790,26 +1790,11 @@ details[open] .howto-summary::before { transform: rotate(90deg); }
   text-decoration: none;
   color: var(--text);
 }
-.qs-num {
-  align-self: flex-start;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 999px;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--primary-soft) 100%);
-  color: #FFFFFF;
-  font-weight: 800;
-  font-size: .95rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: .55rem;
-}
-.qs-emoji { font-size: 1.4rem; margin-bottom: .3rem; }
 .qs-title {
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   color: var(--text);
-  margin-bottom: .35rem;
+  margin-bottom: .45rem;
 }
 .qs-body {
   color: var(--text-muted);

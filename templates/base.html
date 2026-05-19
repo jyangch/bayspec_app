@@ -75,27 +75,6 @@
 
     <hr style="margin:.5rem 0" />
 
-    <!-- Workflow steps (5-stage live progress from session state) -->
-    <div class="sidebar-workflow">
-      <span class="sidebar-workflow-label">Workflow</span>
-      <ol class="sidebar-workflow-list">
-        {% for step in workflow %}
-        <li class="is-{{ step.state }}">
-          <span class="step-num">{{ step.num }}</span>
-          <span class="step-body">
-            <span class="step-title">{{ step.title }}</span>
-            <span class="step-caption">{{ step.caption }}</span>
-          </span>
-          <span class="step-dot">
-            {% if step.state == 'done' %}●{% elif step.state == 'active' %}◉{% else %}○{% endif %}
-          </span>
-        </li>
-        {% endfor %}
-      </ol>
-    </div>
-
-    <hr style="margin:.5rem 0" />
-
     <!-- Navigation -->
     <span class="nav-section-label">Pages</span>
     <nav>
@@ -128,6 +107,27 @@
     </nav>
 
     {% block sidebar_extra %}{% endblock %}
+
+    <hr style="margin:.5rem 0" />
+
+    <!-- Workflow steps (5-stage live progress from session state) -->
+    <div class="sidebar-workflow">
+      <span class="sidebar-workflow-label">Workflow</span>
+      <ol class="sidebar-workflow-list">
+        {% for step in workflow %}
+        <li class="is-{{ step.state }}">
+          <span class="step-num">{{ step.num }}</span>
+          <span class="step-body">
+            <span class="step-title">{{ step.title }}</span>
+            <span class="step-caption">{{ step.caption }}</span>
+          </span>
+          <span class="step-dot">
+            {% if step.state == 'done' %}●{% elif step.state == 'active' %}◉{% else %}○{% endif %}
+          </span>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
 
     <hr style="margin:.5rem 0" />
 
