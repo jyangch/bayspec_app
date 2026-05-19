@@ -1531,6 +1531,64 @@ details[open] .howto-summary::before { transform: rotate(90deg); }
 .sidebar-version a { color: var(--text-muted); font-size: .75rem; }
 .sidebar-version a:hover { color: var(--primary); }
 
+/* ===== Run-history chips + stale banner ===== */
+.history-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem;
+  margin: .15rem 0 .75rem;
+}
+.history-chip {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: .78rem;
+  font-weight: 500;
+  padding: .3rem .65rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background-color: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, color .15s ease;
+}
+.history-chip:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.history-chip.is-active {
+  background: linear-gradient(135deg, rgba(79, 70, 229, .10) 0%,
+                                      rgba(6, 182, 212, .08) 100%);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 700;
+}
+.history-clear {
+  font-size: .78rem;
+  font-weight: 500;
+  padding: .3rem .7rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background-color: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color .15s ease, color .15s ease;
+}
+.history-clear:hover {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.stale-chip {
+  padding: .55rem .85rem;
+  margin: 0 0 .75rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(245, 158, 11, .50);
+  background-color: rgba(245, 158, 11, .08);
+  color: var(--alert-warning-text);
+  font-size: .87rem;
+  line-height: 1.45;
+}
+
 /* ===== Sidebar config (Save / Load) ===== */
 .sidebar-config { display: flex; flex-direction: column; gap: .25rem; }
 .sidebar-config .config-btn {

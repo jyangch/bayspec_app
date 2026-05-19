@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import re
 import threading
+import time
 import uuid
 
 from bayspec.model.local import local_models as _local_models
@@ -1416,6 +1417,36 @@ async def manual_fit_plot(request: Request):
         return HTMLResponse(f"<p class='alert alert-danger'>Plot error: {exc}</p>")
 
 
+@app.post('/infer/history/select', response_class=HTMLResponse)
+async def select_history(request: Request, idx: int = Form(0)):
+    """Switch the active posterior to a different stored run."""
+    _, s, _ = _session(request)
+    ist = s['infer_state']
+    history = ist.get('history', [])
+    if not history:
+        return _render_infer_panel(s, request)
+    idx = max(0, min(idx, len(history) - 1))
+    entry = history[idx]
+    ist['history_idx'] = idx
+    ist['posterior'] = entry['posterior']
+    ist['result'] = entry['result_html']
+    ist['stat_ic'] = entry['stat_ic_html']
+    return _render_infer_panel(s, request)
+
+
+@app.post('/infer/history/clear', response_class=HTMLResponse)
+async def clear_history(request: Request):
+    """Discard every stored run; the user falls back to a fresh inference."""
+    _, s, _ = _session(request)
+    ist = s['infer_state']
+    ist['history'] = []
+    ist['history_idx'] = 0
+    ist['posterior'] = None
+    ist['result'] = None
+    ist['stat_ic'] = None
+    return _render_infer_panel(s, request)
+
+
 @app.post('/infer/run', response_class=HTMLResponse)
 async def run_infer(
     request: Request,
@@ -1479,8 +1510,11 @@ async def run_infer(
         'error': None,
     }
 
+    pair_hash = tuple(sorted(f"{p['data']}↔{p['model']}" for p in pairs))
+
     def _worker():
         task = _tasks[task_id]
+        t0 = time.time()
         try:
             n = s['infer'].free_nparams
             task['messages'].append(f'Ready — {n} free parameter(s)')
@@ -1507,10 +1541,30 @@ async def run_infer(
                 else:
                     post = fit.iminuit(savepath=savepath)
 
+            result_html = _posterior_param_html(post)
+            stat_ic_html = _posterior_stat_ic_html(post)
+            elapsed = time.time() - t0
+
             ist['posterior'] = post
-            ist['result'] = _posterior_param_html(post)
-            ist['stat_ic'] = _posterior_stat_ic_html(post)
+            ist['result'] = result_html
+            ist['stat_ic'] = stat_ic_html
             ist['error'] = None
+
+            # Push into run history (newest first, capped at 3 entries).
+            history = ist.setdefault('history', [])
+            history.insert(0, {
+                'sampler': sampler,
+                'when': time.strftime('%H:%M:%S', time.localtime(t0)),
+                'elapsed': elapsed,
+                'posterior': post,
+                'savepath': savepath,
+                'pair_hash': list(pair_hash),
+                'result_html': result_html,
+                'stat_ic_html': stat_ic_html,
+            })
+            del history[3:]
+            ist['history_idx'] = 0
+
             task['result_html'] = ist['result']
             task['status'] = 'done'
             task['messages'].append('Complete.')

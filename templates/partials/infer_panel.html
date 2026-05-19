@@ -403,6 +403,52 @@
 
   <!-- ── Results & Posterior (unified 5-tab card) ── -->
   {% if ist.get("result") %}
+    {% set history = ist.get('history', []) %}
+    {% set hidx = ist.get('history_idx', 0) %}
+    {% set current_ph = ist.get('pairs', []) | map(attribute='data') | list %}
+    {% set active_entry = history[hidx] if history and hidx < history|length else none %}
+    {% set entry_ph = active_entry.pair_hash if active_entry else none %}
+    {% set ns_pairs = namespace(items=[]) %}
+    {% for p in ist.get('pairs', []) %}{% set _ = ns_pairs.items.append(p.data ~ '↔' ~ p.model) %}{% endfor %}
+    {% set live_pair_hash = ns_pairs.items | sort %}
+    {% set is_stale = entry_ph is not none and entry_ph != live_pair_hash %}
+
+    {% if history|length >= 2 %}
+    <div class="history-chips" role="radiogroup" aria-label="Run history">
+      {% for entry in history %}
+      <form hx-post="/infer/history/select"
+            hx-target="#infer-panel" hx-swap="outerHTML"
+            style="display:inline">
+        <input type="hidden" name="idx" value="{{ loop.index0 }}">
+        <button type="submit"
+                class="history-chip {% if loop.index0 == hidx %}is-active{% endif %}"
+                title="Switch to this run">
+          #{{ history|length - loop.index0 }}
+          · {{ entry.sampler }}
+          · {{ '%.1f'|format(entry.elapsed) }}s
+          · {{ entry.when }}
+        </button>
+      </form>
+      {% endfor %}
+      <form hx-post="/infer/history/clear"
+            hx-target="#infer-panel" hx-swap="outerHTML"
+            style="display:inline;margin-left:auto"
+            hx-confirm="Discard all stored runs?">
+        <button type="submit" class="history-clear" title="Drop every stored run">
+          🧹 Clear history
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    {% if is_stale %}
+    <div class="stale-chip">
+      ⚠️ This run was produced from a different Data ↔ Model binding than
+      the one currently active. Re-Build to refresh the inference object
+      before running again.
+    </div>
+    {% endif %}
+
     <div class="card infer-section">
       <div class="section-head">
         <h3>Analyzer</h3>
