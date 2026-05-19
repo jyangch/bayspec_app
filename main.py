@@ -2176,3 +2176,59 @@ async def import_config(request: Request, config_file: UploadFile = File(...)):
         'FITS spectra to complete the setup.</div>',
         headers={'HX-Refresh': 'true'},
     )
+
+
+# ----- Session reset --------------------------------------------------------
+
+_RESET_BUTTON_HTML = (
+    '<button type="button" class="config-btn"'
+    ' hx-get="/config/reset/confirm" hx-target="#config-reset-slot"'
+    ' hx-swap="innerHTML"'
+    ' title="Wipe Data, Models, Pairs, and Inference state. Custom models you'
+    ' registered are kept.">'
+    '<svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">'
+    '<path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311'
+    'h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43'
+    '4l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.385zm1.23-3.723a.75.75 0 00.219'
+    '-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.4'
+    '48.388A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 '
+    '00.53-.219z" clip-rule="evenodd"/>'
+    '</svg>Reset session</button>'
+)
+
+_RESET_CONFIRM_HTML = (
+    '<div class="config-reset-confirm">'
+    '<span class="config-reset-prompt">Reset everything?</span>'
+    '<div class="config-reset-actions">'
+    '<button type="button" class="config-btn config-btn-ghost"'
+    ' hx-get="/config/reset/button" hx-target="#config-reset-slot"'
+    ' hx-swap="innerHTML">Cancel</button>'
+    '<button type="button" class="config-btn config-btn-danger"'
+    ' hx-post="/config/reset" hx-target="#config-reset-slot"'
+    ' hx-swap="innerHTML">Yes, reset</button>'
+    '</div></div>'
+)
+
+
+@app.get('/config/reset/button', response_class=HTMLResponse)
+async def reset_button():
+    """Restore the default 'Reset session' button (cancel path)."""
+    return HTMLResponse(_RESET_BUTTON_HTML)
+
+
+@app.get('/config/reset/confirm', response_class=HTMLResponse)
+async def reset_confirm():
+    """Inline two-step confirm before wiping the session."""
+    return HTMLResponse(_RESET_CONFIRM_HTML)
+
+
+@app.post('/config/reset', response_class=HTMLResponse)
+async def reset_session(request: Request):
+    """Wipe the session back to initial state, preserving custom_models."""
+    _, s, _ = _session(request)
+    custom = s.get('custom_models') or {}
+    fresh = state._new()
+    fresh['custom_models'] = custom
+    s.clear()
+    s.update(fresh)
+    return HTMLResponse('', headers={'HX-Refresh': 'true'})
