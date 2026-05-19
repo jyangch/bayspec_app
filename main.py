@@ -55,12 +55,12 @@ def _workflow_state(s: dict) -> list[dict]:
     not-yet-done stage is marked ``active``; everything earlier is
     ``done`` and everything later is ``pending``.
     """
-    n_units = sum(
-        len(getattr(d, 'data', {}))
-        for d in s.get('data', {}).values()
-        if d is not None
-    )
-    n_models = sum(1 for m in s.get('model', {}).values() if m is not None)
+    # Count top-level containers — Data and Model — not their nested
+    # children (DataUnits, components). The workflow stage is about
+    # "have I created the container yet"; rendering the inner counts
+    # here would conflict with the per-page summary tiles.
+    n_data = len(s.get('data', {}) or {})
+    n_models = len(s.get('model', {}) or {})
     pairs = s.get('infer_state', {}).get('pairs') or []
     if not pairs:
         # Fall back to a fresh derivation when the cache hasn't been
@@ -73,7 +73,7 @@ def _workflow_state(s: dict) -> list[dict]:
     has_post = ist.get('posterior') is not None or bool(ist.get('history'))
 
     flags = [
-        n_units > 0,
+        n_data > 0,
         n_models > 0,
         n_pairs > 0,
         has_built,
@@ -89,7 +89,8 @@ def _workflow_state(s: dict) -> list[dict]:
         return f'{n} {unit}{"s" if n != 1 else ""}'
 
     raw = [
-        ('Data',      caption(n_units, 'unit'),      flags[0]),
+        # "data" is a mass noun — no plural s.
+        ('Data',      f'{n_data} data',              flags[0]),
         ('Model',     caption(n_models, 'model'),    flags[1]),
         ('Pairs',     caption(n_pairs, 'pair'),      flags[2]),
         ('Inference', 'built' if has_built else 'pending', flags[3]),
