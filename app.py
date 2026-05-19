@@ -1,7 +1,75 @@
 import json
 
+import plotly.graph_objects as go
+import plotly.io as pio
 from st_pages import add_page_title, get_nav_from_toml
 import streamlit as st
+
+
+# ---------- Plotly "bayspec_white" template -----------------------------
+# Registering once at module load makes every Plotly figure rendered by
+# any page pick up the same look: indigo/cyan series, Inter typography,
+# soft grid and on-brand hover labels.
+def _register_plotly_template() -> None:
+    pio.templates['bayspec_white'] = go.layout.Template(
+        layout=go.Layout(
+            font=dict(
+                family='Inter, -apple-system, BlinkMacSystemFont, Helvetica, '
+                       'Arial, sans-serif',
+                size=13,
+                color='#0F172A',
+            ),
+            colorway=[
+                '#4F46E5',  # primary indigo
+                '#06B6D4',  # accent cyan
+                '#10B981',  # success
+                '#F59E0B',  # warning
+                '#EF4444',  # danger
+                '#8B5CF6',  # purple
+                '#0EA5E9',  # sky
+                '#22C55E',  # emerald
+            ],
+            paper_bgcolor='#FFFFFF',
+            plot_bgcolor='#FFFFFF',
+            xaxis=dict(
+                gridcolor='#F1F5F9',
+                linecolor='#CBD5E1',
+                zerolinecolor='#E2E8F0',
+                ticks='outside',
+                tickcolor='#CBD5E1',
+                title=dict(font=dict(size=13, color='#475569')),
+            ),
+            yaxis=dict(
+                gridcolor='#F1F5F9',
+                linecolor='#CBD5E1',
+                zerolinecolor='#E2E8F0',
+                ticks='outside',
+                tickcolor='#CBD5E1',
+                title=dict(font=dict(size=13, color='#475569')),
+            ),
+            hoverlabel=dict(
+                bgcolor='#0F172A',
+                bordercolor='#1E293B',
+                font=dict(
+                    family='JetBrains Mono, SF Mono, Menlo, monospace',
+                    size=12,
+                    color='#F8FAFC',
+                ),
+            ),
+            legend=dict(
+                bgcolor='rgba(255,255,255,0.85)',
+                bordercolor='#E2E8F0',
+                borderwidth=1,
+                font=dict(size=12),
+            ),
+            margin=dict(l=65, r=20, t=30, b=50),
+        )
+    )
+    # Make every fig.show / px / go.Figure render with this by default.
+    pio.templates.default = 'simple_white+bayspec_white'
+
+
+_register_plotly_template()
 
 _SKIP = object()
 
@@ -747,6 +815,111 @@ GLOBAL_CSS = """
     .bsp-mini-step.active .bsp-mini-dot { color: var(--bsp-primary); }
     .bsp-mini-step.active .bsp-mini-title { color: var(--bsp-primary); }
 
+    /* Page footer */
+    .bsp-footer {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+        margin: 3rem 0 0.6rem;
+        padding-top: 1.2rem;
+        border-top: 1px solid var(--bsp-border-soft);
+        flex-wrap: wrap;
+    }
+    .bsp-footer-brand { display: flex; align-items: baseline; gap: 0.6rem; }
+    .bsp-footer-name {
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--bsp-primary) 0%, var(--bsp-accent) 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 1rem;
+        letter-spacing: -0.01em;
+    }
+    .bsp-footer-tag {
+        color: var(--bsp-text-muted);
+        font-size: 0.85rem;
+    }
+    .bsp-footer-links {
+        display: flex;
+        gap: 0.95rem;
+    }
+    .bsp-footer-links a {
+        color: var(--bsp-text-muted);
+        font-size: 0.85rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: color 0.15s ease;
+    }
+    .bsp-footer-links a:hover {
+        color: var(--bsp-primary);
+        text-decoration: none;
+    }
+
+    /* Custom run-status card */
+    .bsp-run-card {
+        position: relative;
+        padding: 1.05rem 1.2rem 0.9rem;
+        border-radius: 14px;
+        border: 1px solid var(--bsp-border);
+        background:
+            radial-gradient(circle at 0% 0%, rgba(79, 70, 229, 0.06), transparent 55%),
+            radial-gradient(circle at 100% 100%, rgba(6, 182, 212, 0.06), transparent 55%),
+            #FFFFFF;
+        box-shadow: var(--bsp-shadow-md);
+        margin-bottom: 0.8rem;
+    }
+    .bsp-run-card.done {
+        border-color: rgba(16, 185, 129, 0.40);
+        background:
+            radial-gradient(circle at 0% 0%, rgba(16, 185, 129, 0.06), transparent 55%),
+            #FFFFFF;
+    }
+    .bsp-run-card.failed {
+        border-color: rgba(239, 68, 68, 0.40);
+        background:
+            radial-gradient(circle at 0% 0%, rgba(239, 68, 68, 0.06), transparent 55%),
+            #FFFFFF;
+    }
+    .bsp-run-head {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.65rem;
+    }
+    .bsp-run-spinner {
+        width: 14px; height: 14px;
+        border-radius: 999px;
+        border: 2px solid var(--bsp-primary);
+        border-right-color: transparent;
+        animation: bsp-run-spin 0.85s linear infinite;
+    }
+    @keyframes bsp-run-spin {
+        to { transform: rotate(360deg); }
+    }
+    .bsp-run-title {
+        font-weight: 700;
+        font-size: 1.0rem;
+        color: var(--bsp-text);
+    }
+    .bsp-run-card.done .bsp-run-title { color: var(--bsp-success); }
+    .bsp-run-card.failed .bsp-run-title { color: var(--bsp-danger); }
+    .bsp-run-meta {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.6rem;
+    }
+    .bsp-run-chip {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.78rem;
+        padding: 0.18rem 0.55rem;
+        border-radius: 6px;
+        background-color: var(--bsp-surface);
+        color: var(--bsp-text);
+        border: 1px solid var(--bsp-border-soft);
+    }
+
     /* Quickstart cards on Home page */
     .bsp-quickstart {
         display: grid;
@@ -935,3 +1108,21 @@ pg = st.navigation(nav)
 add_page_title(pg)
 
 pg.run()
+
+# ---- Footer (every page) ----------------------------------------------
+st.markdown(
+    '<div class="bsp-footer">'
+    '  <div class="bsp-footer-brand">'
+    '    <span class="bsp-footer-name">BaySpec</span>'
+    '    <span class="bsp-footer-tag">Bayesian spectral fitting workbench</span>'
+    '  </div>'
+    '  <div class="bsp-footer-links">'
+    '    <a href="https://pypi.org/project/bayspec/" target="_blank">PyPI</a>'
+    '    <a href="https://bayspec.readthedocs.io" target="_blank">Docs</a>'
+    '    <a href="https://github.com/jyangch/bayspec" target="_blank">GitHub</a>'
+    '    <a href="https://www.gnu.org/licenses/gpl-3.0-standalone.html" '
+    '       target="_blank">GPL-3.0</a>'
+    '  </div>'
+    '</div>',
+    unsafe_allow_html=True,
+)

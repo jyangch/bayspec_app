@@ -755,89 +755,120 @@ with st.expander('***Inference***', expanded=True):
             if not sampler_exist:
                 st.warning('Selected method backend is not installed!', icon='⚠️')
             else:
-                # Run config summary for the user's records.
+                # Method / config chip line for the run card.
                 if sampler == 'multinest':
-                    cfg_line = f'multinest · nlive={multinest_nlive} · resume={resume}'
+                    method_chip = f'multinest · nlive={multinest_nlive}'
                 elif sampler == 'emcee':
-                    cfg_line = (
-                        f'emcee · nstep={emcee_nstep} · discard={emcee_discard} · '
-                        f'resume={resume}'
-                    )
+                    method_chip = f'emcee · nstep={emcee_nstep} · discard={emcee_discard}'
                 else:
-                    cfg_line = f'{sampler} (max-likelihood optimizer)'
+                    method_chip = f'{sampler} (max-likelihood)'
 
-                run_panel = st.container(border=True)
+                n_free = infer.free_nparams
                 t0 = time.time()
-                with run_panel, st.status(
-                    f'Running {sampler}…', expanded=True
-                ) as status:
-                    st.markdown(f'**Method**  ·  `{cfg_line}`')
-                    st.markdown(f'**Savepath**  ·  `{savepath}`')
-                    st.write(
-                        '🕐 Start: '
-                        f'{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t0))}'
+
+                if not os.path.exists(savepath):
+                    os.makedirs(savepath)
+
+                # Custom run card — replaces st.status with a styled card.
+                run_slot = st.empty()
+                log_lines: list[str] = [
+                    f'🕐 Start: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(t0))}',
+                    f'🧮 Free parameters: <b>{n_free}</b>',
+                ]
+
+                def _render_card(state: str, log: list[str], title: str | None = None):
+                    cls_extra = ''
+                    head_icon = '<span class="bsp-run-spinner"></span>'
+                    if state == 'done':
+                        cls_extra = ' done'
+                        head_icon = '<span style="color:var(--bsp-success);'\
+                            'font-size:1.05rem">●</span>'
+                    elif state == 'failed':
+                        cls_extra = ' failed'
+                        head_icon = '<span style="color:var(--bsp-danger);'\
+                            'font-size:1.05rem">●</span>'
+
+                    head_title = title or f'Running {sampler}…'
+                    log_html = ''.join(
+                        f'<div style="font-family:JetBrains Mono,monospace;'
+                        f'font-size:.82rem;color:var(--bsp-text);'
+                        f'padding:.15rem 0">{ln}</div>'
+                        for ln in log
                     )
-                    if not os.path.exists(savepath):
-                        os.makedirs(savepath)
-                        st.write(f'📁 Created savepath: `{savepath}`')
-                    n_free = infer.free_nparams
-                    st.write(f'🧮 Free parameters: **{n_free}**')
-
-                    post = None
-                    err: str | None = None
-                    try:
-                        if sampler == 'multinest':
-                            st.write('🚀 Sampling with MultiNest…')
-                            post = infer.multinest(
-                                nlive=multinest_nlive,
-                                resume=resume,
-                                savepath=savepath,
-                            )
-                        elif sampler == 'emcee':
-                            st.write(
-                                f'🚀 Sampling with emcee ({emcee_nstep} steps)…'
-                            )
-                            post = infer.emcee(
-                                nstep=emcee_nstep,
-                                discard=emcee_discard,
-                                resume=resume,
-                                savepath=savepath,
-                            )
-                        elif sampler in ('lmfit', 'iminuit'):
-                            st.write(f'⚙️ Optimising with {sampler}…')
-                            fit = MaxLikeFit(pair_list)
-                            post = (
-                                fit.lmfit(savepath=savepath)
-                                if sampler == 'lmfit'
-                                else fit.iminuit(savepath=savepath)
-                            )
-                    except Exception as exc:
-                        err = str(exc)
-                        st.write(f'🚨 **Run failed:** {err}')
-
-                    elapsed = time.time() - t0
-                    st.write(
-                        '🕐 Stop: '
-                        f'{time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())} '
-                        f'  ·  elapsed **{elapsed:0.1f}s**'
+                    run_slot.markdown(
+                        f'<div class="bsp-run-card{cls_extra}">'
+                        f'  <div class="bsp-run-head">'
+                        f'    {head_icon}'
+                        f'    <span class="bsp-run-title">{head_title}</span>'
+                        f'  </div>'
+                        f'  <div class="bsp-run-meta">'
+                        f'    <span class="bsp-run-chip">{method_chip}</span>'
+                        f'    <span class="bsp-run-chip">savepath: {savepath}</span>'
+                        f'    <span class="bsp-run-chip">free: {n_free}</span>'
+                        f'  </div>'
+                        f'  {log_html}'
+                        f'</div>',
+                        unsafe_allow_html=True,
                     )
 
-                    if post is not None:
-                        st.session_state.infer_state['post'] = post
-                        st.session_state.infer_state['last_elapsed'] = elapsed
-                        status.update(
-                            label=f'Run complete in {elapsed:0.1f}s',
-                            state='complete',
-                            expanded=False,
+                _render_card('running', log_lines)
+
+                post = None
+                err: str | None = None
+                try:
+                    if sampler == 'multinest':
+                        log_lines.append('🚀 Sampling with MultiNest…')
+                        _render_card('running', log_lines)
+                        post = infer.multinest(
+                            nlive=multinest_nlive,
+                            resume=resume,
+                            savepath=savepath,
                         )
-                    else:
-                        status.update(
-                            label='Run failed',
-                            state='error',
-                            expanded=True,
+                    elif sampler == 'emcee':
+                        log_lines.append(
+                            f'🚀 Sampling with emcee ({emcee_nstep} steps)…'
                         )
+                        _render_card('running', log_lines)
+                        post = infer.emcee(
+                            nstep=emcee_nstep,
+                            discard=emcee_discard,
+                            resume=resume,
+                            savepath=savepath,
+                        )
+                    elif sampler in ('lmfit', 'iminuit'):
+                        log_lines.append(f'⚙️ Optimising with {sampler}…')
+                        _render_card('running', log_lines)
+                        fit = MaxLikeFit(pair_list)
+                        post = (
+                            fit.lmfit(savepath=savepath)
+                            if sampler == 'lmfit'
+                            else fit.iminuit(savepath=savepath)
+                        )
+                except Exception as exc:
+                    err = str(exc)
+                    log_lines.append(f'🚨 <b>Run failed:</b> {err}')
+
+                elapsed = time.time() - t0
+                log_lines.append(
+                    f'🕐 Stop: {time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())} '
+                    f'· elapsed <b>{elapsed:0.1f}s</b>'
+                )
+
                 if post is not None:
+                    st.session_state.infer_state['post'] = post
+                    st.session_state.infer_state['last_elapsed'] = elapsed
+                    _render_card(
+                        'done',
+                        log_lines,
+                        title=f'Run complete · {elapsed:0.1f}s',
+                    )
                     st.rerun()
+                else:
+                    _render_card(
+                        'failed',
+                        log_lines,
+                        title='Run failed',
+                    )
 
     post = st.session_state.infer_state.get('post')
 
