@@ -75,19 +75,22 @@
 
     <hr style="margin:.5rem 0" />
 
-    <!-- Workflow steps -->
+    <!-- Workflow steps (5-stage live progress from session state) -->
     <div class="sidebar-workflow">
       <span class="sidebar-workflow-label">Workflow</span>
       <ol class="sidebar-workflow-list">
-        <li class="{% if active_page == 'data' %}is-active{% endif %}">
-          <span class="step-num">1</span> Upload Data
+        {% for step in workflow %}
+        <li class="is-{{ step.state }}">
+          <span class="step-num">{{ step.num }}</span>
+          <span class="step-body">
+            <span class="step-title">{{ step.title }}</span>
+            <span class="step-caption">{{ step.caption }}</span>
+          </span>
+          <span class="step-dot">
+            {% if step.state == 'done' %}●{% elif step.state == 'active' %}◉{% else %}○{% endif %}
+          </span>
         </li>
-        <li class="{% if active_page == 'model' %}is-active{% endif %}">
-          <span class="step-num">2</span> Build Model
-        </li>
-        <li class="{% if active_page == 'infer' %}is-active{% endif %}">
-          <span class="step-num">3</span> Run Inference
-        </li>
+        {% endfor %}
       </ol>
     </div>
 

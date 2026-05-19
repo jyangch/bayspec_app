@@ -47,10 +47,82 @@ def _session(request: Request) -> tuple[str, dict, bool]:
     return sid, state.get(sid), is_new
 
 
+def _workflow_state(s: dict) -> list[dict]:
+    """Five-stage workflow indicator computed from the session.
+
+    Returns a list of dicts with ``num`` / ``title`` / ``caption`` /
+    ``state`` (``done`` | ``active`` | ``pending``). The first
+    not-yet-done stage is marked ``active``; everything earlier is
+    ``done`` and everything later is ``pending``.
+    """
+    n_units = sum(
+        len(getattr(d, 'data', {}))
+        for d in s.get('data', {}).values()
+        if d is not None
+    )
+    n_models = sum(1 for m in s.get('model', {}).values() if m is not None)
+    pairs = s.get('infer_state', {}).get('pairs') or []
+    if not pairs:
+        # Fall back to a fresh derivation when the cache hasn't been
+        # populated yet (e.g. the sidebar renders before /infer is hit).
+        pairs = _derived_pairs(s)
+    n_pairs = len(pairs)
+
+    ist = s.get('infer_state', {}) or {}
+    has_built = bool(ist.get('pairs_confirmed'))
+    has_post = ist.get('posterior') is not None or bool(ist.get('history'))
+
+    flags = [
+        n_units > 0,
+        n_models > 0,
+        n_pairs > 0,
+        has_built,
+        has_post,
+    ]
+    # First not-done stage becomes the active one.
+    try:
+        active_idx = flags.index(False)
+    except ValueError:
+        active_idx = -1
+
+    def caption(n: int, unit: str) -> str:
+        return f'{n} {unit}{"s" if n != 1 else ""}'
+
+    raw = [
+        ('Data',      caption(n_units, 'unit'),      flags[0]),
+        ('Model',     caption(n_models, 'model'),    flags[1]),
+        ('Pairs',     caption(n_pairs, 'pair'),      flags[2]),
+        ('Inference', 'built' if has_built else 'pending', flags[3]),
+        ('Posterior', 'ready' if has_post else 'pending',  flags[4]),
+    ]
+    out = []
+    for i, (title, cap, done) in enumerate(raw):
+        if done:
+            state = 'done'
+        elif i == active_idx:
+            state = 'active'
+        else:
+            state = 'pending'
+        out.append({
+            'num': i + 1,
+            'title': title,
+            'caption': cap,
+            'state': state,
+        })
+    return out
+
+
 def _render(name: str, request: Request, **ctx):
     sid, s, is_new = _session(request)
     resp = templates.TemplateResponse(
-        request=request, name=name, context={'session_id': sid, 's': s, **ctx}
+        request=request,
+        name=name,
+        context={
+            'session_id': sid,
+            's': s,
+            'workflow': _workflow_state(s),
+            **ctx,
+        },
     )
     if is_new:
         resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite='lax')
