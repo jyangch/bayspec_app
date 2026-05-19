@@ -52,6 +52,11 @@
         </g>
         <circle cx="33" cy="14" r="1.7" fill="#FFF"/>
 
+        <!-- Distant range = faint second silhouette peeking from behind -->
+        <path d="M 24 44 L 24 41 C 28 39, 30 31, 32 31
+                 C 35 31, 37 37, 40 40 L 40 44 Z"
+              fill="#FFF" opacity="0.10"/>
+
         <!-- Mountain silhouette = filled area under the spectrum curve -->
         <path d="M 5 44 L 5 42 C 12 41, 14 30, 17 30
                  C 23 30, 28 38, 44 38 L 44 44 Z"
@@ -67,8 +72,11 @@
         <circle cx="17" cy="30"   r="1.5" fill="#FFF"/>
         <circle cx="32" cy="36.5" r="1.1" fill="#FFF"/>
 
-        <!-- Horizon line at the mountain's base -->
-        <line x1="5" y1="44" x2="46" y2="44"
+        <!-- Horizon line — trimmed so the mountain "stands in front of" it -->
+        <line x1="3"  y1="44" x2="5"  y2="44"
+              stroke="#FFF" stroke-opacity="0.22" stroke-width="0.7"
+              stroke-linecap="round"/>
+        <line x1="44" y1="44" x2="47" y2="44"
               stroke="#FFF" stroke-opacity="0.22" stroke-width="0.7"
               stroke-linecap="round"/>
 
