@@ -1753,27 +1753,27 @@ nav.page-nav {
 }
 nav.page-nav .page-nav-link {
   display: inline-flex;
-  align-items: baseline;
+  align-items: center;
   gap: .4rem;
-  padding: 0;
-  border-radius: 0;
-  background: none;
+  padding: .5rem .9rem;
+  border-radius: 10px;
+  background: rgba(79,70,229,.08);
   box-shadow: none;
   font-size: .95rem;
-  font-weight: 600;
-  color: var(--text-muted);
+  font-weight: 700;
+  color: var(--primary);
   text-decoration: none;
-  transition: color .15s;
+  transition: background-color .15s, color .15s;
 }
 nav.page-nav .page-nav-link:hover {
-  color: var(--primary);
-  background: none;
+  background: rgba(79,70,229,.16);
+  color: var(--primary-hover);
   text-decoration: none;
   transform: none;
 }
 nav.page-nav .page-nav-arrow {
   font-size: 1rem;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 /* ===== Page footer (every page) ===== */
