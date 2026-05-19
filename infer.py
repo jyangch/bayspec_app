@@ -910,6 +910,20 @@ with st.expander('***Inference***', expanded=True):
                 if post is not None:
                     st.session_state.infer_state['post'] = post
                     st.session_state.infer_state['last_elapsed'] = elapsed
+                    # Run history — keep up to 3 latest runs.
+                    history = st.session_state.infer_state.setdefault('history', [])
+                    history.insert(
+                        0,
+                        {
+                            'sampler': sampler,
+                            'when': time.strftime('%H:%M:%S'),
+                            'elapsed': elapsed,
+                            'post': post,
+                            'savepath': savepath,
+                        },
+                    )
+                    del history[3:]
+                    st.session_state.infer_state['history_idx'] = 0
                     _render_card(
                         'done',
                         log_lines,
@@ -923,9 +937,50 @@ with st.expander('***Inference***', expanded=True):
                         title='Run failed',
                     )
 
-    post = st.session_state.infer_state.get('post')
+    history = st.session_state.infer_state.get('history', [])
+
+    # Resolve the active posterior + savepath from run history when present;
+    # fall back to the single-post path for back-compat with pre-R13 state.
+    if history:
+        idx = max(0, min(int(st.session_state.infer_state.get('history_idx', 0)),
+                         len(history) - 1))
+        post = history[idx].get('post')
+        savepath_for_zip = history[idx].get('savepath', savepath)
+        st.session_state.infer_state['post'] = post  # keep mirror consistent
+    else:
+        idx = 0
+        post = st.session_state.infer_state.get('post')
+        savepath_for_zip = savepath
 
     with post_col:
+        if len(history) > 1:
+            options = [
+                f'#{len(history) - i}  ·  {h["sampler"]}  ·  '
+                f'{h["elapsed"]:0.1f}s  ·  {h["when"]}'
+                for i, h in enumerate(history)
+            ]
+            picked = st.radio(
+                'Run history',
+                options,
+                index=idx,
+                horizontal=True,
+                key='infer_history_radio',
+                help='Switch between the last three completed inference runs.',
+                label_visibility='collapsed',
+            )
+            new_idx = options.index(picked)
+            if new_idx != idx:
+                st.session_state.infer_state['history_idx'] = new_idx
+                st.rerun()
+            if st.button(
+                '🧹  Clear run history',
+                key='infer_history_clear',
+                help='Discard every stored run (current and previous).',
+            ):
+                st.session_state.infer_state['history'] = []
+                st.session_state.infer_state['history_idx'] = 0
+                st.session_state.infer_state.pop('post', None)
+                st.rerun()
         # Build the plots once so they can both render *and* be packaged into
         # downloads. We do this lazily — only when post exists.
         corner_fig = ctsspec_fig = None
@@ -941,7 +996,7 @@ with st.expander('***Inference***', expanded=True):
 
             zip_bytes = _result_zip_bytes(
                 post,
-                savepath,
+                savepath_for_zip,
                 extra_plots={'corner': corner_fig, 'ctsspec': ctsspec_fig},
             )
             st.download_button(
