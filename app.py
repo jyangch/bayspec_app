@@ -856,6 +856,46 @@ GLOBAL_CSS = """
         text-decoration: none;
     }
 
+    /* Run history radio (chip-style) and stale-binding warning */
+    .bsp-history-wrap + div div[role="radiogroup"] {
+        gap: 0.4rem;
+        margin-bottom: 0.4rem;
+    }
+    .bsp-history-wrap + div div[role="radiogroup"] label {
+        padding: 0.35rem 0.7rem !important;
+        border-radius: 999px !important;
+        border: 1px solid var(--bsp-border) !important;
+        background-color: var(--bsp-surface) !important;
+        font-family: 'JetBrains Mono', monospace !important;
+        font-size: 0.82rem !important;
+        transition: border-color 0.15s ease, background-color 0.15s ease,
+                    color 0.15s ease;
+    }
+    .bsp-history-wrap + div div[role="radiogroup"] label:hover {
+        border-color: var(--bsp-primary) !important;
+        color: var(--bsp-primary) !important;
+    }
+    .bsp-history-wrap + div div[role="radiogroup"] label:has(input:checked) {
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.10) 0%,
+                                            rgba(6, 182, 212, 0.08) 100%) !important;
+        border-color: var(--bsp-primary) !important;
+        color: var(--bsp-primary) !important;
+        font-weight: 700 !important;
+    }
+    .bsp-history-wrap + div div[role="radiogroup"] label > div:first-child {
+        display: none !important;  /* hide the native radio bullet */
+    }
+    .bsp-stale-chip {
+        padding: 0.55rem 0.85rem;
+        border-radius: 10px;
+        border: 1px solid rgba(245, 158, 11, 0.50);
+        background-color: rgba(245, 158, 11, 0.08);
+        color: #92400E;
+        font-size: 0.88rem;
+        line-height: 1.45;
+        margin-bottom: 0.6rem;
+    }
+
     /* Custom run-status card */
     .bsp-run-card {
         position: relative;

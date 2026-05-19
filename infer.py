@@ -910,7 +910,10 @@ with st.expander('***Inference***', expanded=True):
                 if post is not None:
                     st.session_state.infer_state['post'] = post
                     st.session_state.infer_state['last_elapsed'] = elapsed
-                    # Run history — keep up to 3 latest runs.
+                    # Run history — keep up to 3 latest runs. Tag each
+                    # entry with the pair_hash that produced it so we can
+                    # warn when the user switches back to a run that came
+                    # from a different Data ↔ Model binding.
                     history = st.session_state.infer_state.setdefault('history', [])
                     history.insert(
                         0,
@@ -920,6 +923,7 @@ with st.expander('***Inference***', expanded=True):
                             'elapsed': elapsed,
                             'post': post,
                             'savepath': savepath,
+                            'pair_hash': list(pair_hash),
                         },
                     )
                     del history[3:]
@@ -953,26 +957,47 @@ with st.expander('***Inference***', expanded=True):
         savepath_for_zip = savepath
 
     with post_col:
-        if len(history) > 1:
+        if len(history) >= 1:
             options = [
                 f'#{len(history) - i}  ·  {h["sampler"]}  ·  '
                 f'{h["elapsed"]:0.1f}s  ·  {h["when"]}'
                 for i, h in enumerate(history)
             ]
-            picked = st.radio(
-                'Run history',
-                options,
-                index=idx,
-                horizontal=True,
-                key='infer_history_radio',
-                help='Switch between the last three completed inference runs.',
-                label_visibility='collapsed',
-            )
-            new_idx = options.index(picked)
-            if new_idx != idx:
-                st.session_state.infer_state['history_idx'] = new_idx
-                st.rerun()
-            if st.button(
+            if len(history) > 1:
+                st.markdown(
+                    '<div class="bsp-history-wrap">',
+                    unsafe_allow_html=True,
+                )
+                picked = st.radio(
+                    'Run history',
+                    options,
+                    index=idx,
+                    horizontal=True,
+                    key='infer_history_radio',
+                    help='Switch between the last three completed inference runs.',
+                    label_visibility='collapsed',
+                )
+                st.markdown('</div>', unsafe_allow_html=True)
+                new_idx = options.index(picked)
+                if new_idx != idx:
+                    st.session_state.infer_state['history_idx'] = new_idx
+                    st.rerun()
+
+            # Stale-binding warning when the active run was produced from
+            # a different Data ↔ Model pair set than the one currently
+            # active on the Infer page.
+            run_pair = tuple(history[idx].get('pair_hash', ()))
+            if run_pair and run_pair != pair_hash:
+                st.markdown(
+                    '<div class="bsp-stale-chip">'
+                    '⚠️  This run was produced from a different Data ↔ Model '
+                    'binding than the one currently active. Re-Build to '
+                    'refresh the live inference object before running again.'
+                    '</div>',
+                    unsafe_allow_html=True,
+                )
+
+            if len(history) > 1 and st.button(
                 '🧹  Clear run history',
                 key='infer_history_clear',
                 help='Discard every stored run (current and previous).',
@@ -1055,6 +1080,61 @@ with st.expander('***Inference***', expanded=True):
                     mime='text/csv',
                     key='post_IC_csv',
                 )
+
+        if len(history) > 1:
+            with st.popover(
+                '🔬  Compare runs',
+                use_container_width=True,
+                help='Best-fit values across every stored inference run.',
+            ):
+                rows: dict[str, dict[str, str]] = {}
+                col_order: list[str] = []
+                for i, entry in enumerate(history):
+                    col_label = (
+                        f'#{len(history) - i} · {entry["sampler"]} · {entry["when"]}'
+                    )
+                    col_order.append(col_label)
+                    h_post = entry.get('post')
+                    if h_post is None:
+                        continue
+                    try:
+                        plabels = list(h_post.clean_free_plabels)
+                        bests = list(h_post.par_best)
+                        cis = list(h_post.par_Isigma)
+                    except Exception:
+                        continue
+                    for j, lbl in enumerate(plabels):
+                        try:
+                            best = float(bests[j])
+                            lo, hi = float(cis[j][0]), float(cis[j][1])
+                            cell = f'{best:.3g}  +{abs(hi-best):.2g}/−{abs(best-lo):.2g}'
+                        except (ValueError, TypeError, IndexError):
+                            cell = '—'
+                        rows.setdefault(str(lbl), {})[col_label] = cell
+
+                if not rows:
+                    empty_card(
+                        '🔬',
+                        'No comparable runs yet',
+                        'Every stored run needs at least best-fit values; '
+                        'come back after another sampler completes.',
+                    )
+                else:
+                    cmp_df = pd.DataFrame.from_dict(rows, orient='index').fillna('—')
+                    cmp_df = cmp_df[[c for c in col_order if c in cmp_df.columns]]
+                    cmp_df.index.name = 'Parameter'
+                    st.dataframe(
+                        cmp_df.reset_index(),
+                        use_container_width=True,
+                        hide_index=True,
+                    )
+                    st.download_button(
+                        '⬇️  Download comparison CSV',
+                        data=_df_csv_bytes(cmp_df.reset_index()),
+                        file_name='run_comparison.csv',
+                        mime='text/csv',
+                        key='post_compare_csv',
+                    )
 
         with st.popover('🎯  Corner plot', use_container_width=True):
             if post is None or corner_fig is None:
