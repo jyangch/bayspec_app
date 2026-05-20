@@ -34,6 +34,11 @@ def _new() -> dict[str, Any]:
             'stat_ic': None,
             'posterior': None,
             'error': None,
+            # Run history — list of {sampler, when, elapsed, posterior,
+            # savepath, pair_hash, result_html, stat_ic_html}; latest at
+            # index 0, capped at 3.
+            'history': [],
+            'history_idx': 0,
         },
         'custom_models': {},
         'editor_state': {'status': None, 'status_type': 'success'},

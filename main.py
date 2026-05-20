@@ -1,13 +1,15 @@
 import asyncio
 import contextlib
+import json
 from pathlib import Path
 import re
 import threading
+import time
 import uuid
 
 from bayspec.model.local import local_models as _local_models
 from fastapi import FastAPI, File, Form, Request, UploadFile
-from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -45,10 +47,84 @@ def _session(request: Request) -> tuple[str, dict, bool]:
     return sid, state.get(sid), is_new
 
 
+def _workflow_state(s: dict) -> list[dict]:
+    """Five-stage workflow indicator computed from the session.
+
+    Returns a list of dicts with ``num`` / ``title`` / ``caption`` /
+    ``state`` (``done`` | ``active`` | ``pending``). The first
+    not-yet-done stage is marked ``active``; everything earlier is
+    ``done`` and everything later is ``pending``.
+    """
+    # Count top-level containers — Data and Model — not their nested
+    # children (DataUnits, components). The workflow stage is about
+    # "have I created the container yet"; rendering the inner counts
+    # here would conflict with the per-page summary tiles.
+    n_data = len(s.get('data', {}) or {})
+    n_models = len(s.get('model', {}) or {})
+    pairs = s.get('infer_state', {}).get('pairs') or []
+    if not pairs:
+        # Fall back to a fresh derivation when the cache hasn't been
+        # populated yet (e.g. the sidebar renders before /infer is hit).
+        pairs = _derived_pairs(s)
+    n_pairs = len(pairs)
+
+    ist = s.get('infer_state', {}) or {}
+    has_built = bool(ist.get('pairs_confirmed'))
+    has_post = ist.get('posterior') is not None or bool(ist.get('history'))
+
+    flags = [
+        n_data > 0,
+        n_models > 0,
+        n_pairs > 0,
+        has_built,
+        has_post,
+    ]
+    # First not-done stage becomes the active one.
+    try:
+        active_idx = flags.index(False)
+    except ValueError:
+        active_idx = -1
+
+    def caption(n: int, unit: str) -> str:
+        return f'{n} {unit}{"s" if n != 1 else ""}'
+
+    raw = [
+        # "data" is a mass noun — no plural s.
+        ('Data',      f'{n_data} data',              flags[0]),
+        ('Model',     caption(n_models, 'model'),    flags[1]),
+        ('Pairs',     caption(n_pairs, 'pair'),      flags[2]),
+        ('Inference', 'built' if has_built else 'pending', flags[3]),
+        # Matches the "Analyzer" wording used on the Inference page card.
+        ('Analyzer',  'ready' if has_post else 'pending',  flags[4]),
+    ]
+    out = []
+    for i, (title, cap, done) in enumerate(raw):
+        if done:
+            state = 'done'
+        elif i == active_idx:
+            state = 'active'
+        else:
+            state = 'pending'
+        out.append({
+            'num': i + 1,
+            'title': title,
+            'caption': cap,
+            'state': state,
+        })
+    return out
+
+
 def _render(name: str, request: Request, **ctx):
     sid, s, is_new = _session(request)
     resp = templates.TemplateResponse(
-        request=request, name=name, context={'session_id': sid, 's': s, **ctx}
+        request=request,
+        name=name,
+        context={
+            'session_id': sid,
+            's': s,
+            'workflow': _workflow_state(s),
+            **ctx,
+        },
     )
     if is_new:
         resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite='lax')
@@ -61,6 +137,38 @@ def _partial(name: str, request: Request, **ctx):
     if is_new:
         resp.set_cookie(SESSION_COOKIE, sid, httponly=True, samesite='lax')
     return resp
+
+
+_CONFIG_SKIP = object()
+
+
+def _config_strip(v):
+    """Recursively coerce ``v`` to a JSON-safe structure.
+
+    Anything that is not ``str|int|float|bool|None|list|tuple|dict`` is
+    dropped silently, so non-portable values (Data/Model instances,
+    UploadFile handles, Posterior objects, numpy arrays, …) disappear
+    without breaking the export.
+    """
+    if isinstance(v, (str, int, float, bool, type(None))):
+        return v
+    if isinstance(v, (list, tuple)):
+        out = []
+        for x in v:
+            sx = _config_strip(x)
+            if sx is _CONFIG_SKIP:
+                continue
+            out.append(sx)
+        return out
+    if isinstance(v, dict):
+        out = {}
+        for k, x in v.items():
+            sx = _config_strip(x)
+            if sx is _CONFIG_SKIP:
+                continue
+            out[str(k)] = sx
+        return out
+    return _CONFIG_SKIP
 
 
 def _safe_key(key: str) -> str:
@@ -1383,6 +1491,152 @@ async def manual_fit_plot(request: Request):
         return HTMLResponse(f"<p class='alert alert-danger'>Plot error: {exc}</p>")
 
 
+@app.post('/infer/history/select', response_class=HTMLResponse)
+async def select_history(request: Request, idx: int = Form(0)):
+    """Switch the active posterior to a different stored run."""
+    _, s, _ = _session(request)
+    ist = s['infer_state']
+    history = ist.get('history', [])
+    if not history:
+        return _render_infer_panel(s, request)
+    idx = max(0, min(idx, len(history) - 1))
+    entry = history[idx]
+    ist['history_idx'] = idx
+    ist['posterior'] = entry['posterior']
+    ist['result'] = entry['result_html']
+    ist['stat_ic'] = entry['stat_ic_html']
+    return _render_infer_panel(s, request)
+
+
+@app.post('/infer/history/clear', response_class=HTMLResponse)
+async def clear_history(request: Request):
+    """Discard every stored run; the user falls back to a fresh inference."""
+    _, s, _ = _session(request)
+    ist = s['infer_state']
+    ist['history'] = []
+    ist['history_idx'] = 0
+    ist['posterior'] = None
+    ist['result'] = None
+    ist['stat_ic'] = None
+    return _render_infer_panel(s, request)
+
+
+def _run_comparison_table(history: list) -> tuple[list[str], dict[str, dict[str, str]]]:
+    """Build (column labels, {param: {col: cell}}) from history entries.
+
+    Each cell is "best  +hi/−lo" if the posterior exposes par_best /
+    par_Isigma; otherwise an em-dash. Columns are newest-first ("#3 ·
+    emcee · 12:00:00" pattern); rows are the union of free parameters
+    across every entry.
+    """
+    cols: list[str] = []
+    rows: dict[str, dict[str, str]] = {}
+
+    n = len(history)
+    for i, entry in enumerate(history):
+        col_label = f'#{n - i} · {entry.get("sampler", "?")} · {entry.get("when", "?")}'
+        cols.append(col_label)
+        post = entry.get('posterior')
+        if post is None:
+            continue
+        try:
+            plabels = list(post.clean_free_plabels)
+            bests = list(post.par_best)
+            cis = list(post.par_Isigma)
+        except Exception:
+            continue
+        for j, lbl in enumerate(plabels):
+            try:
+                best = float(bests[j])
+                lo, hi = float(cis[j][0]), float(cis[j][1])
+                cell = f'{best:.3g}  +{abs(hi - best):.2g}/−{abs(best - lo):.2g}'
+            except (ValueError, TypeError, IndexError):
+                cell = '—'
+            rows.setdefault(str(lbl), {})[col_label] = cell
+
+    return cols, rows
+
+
+@app.get('/infer/compare', response_class=HTMLResponse)
+async def compare_runs(request: Request):
+    """Render the run-comparison table fragment (lazy-loaded by the tab)."""
+    _, s, _ = _session(request)
+    history = s['infer_state'].get('history', [])
+    if len(history) < 2:
+        return HTMLResponse(
+            '<div class="ptab-empty">Need at least two completed runs to compare. '
+            'Run inference again to add another entry to the history.</div>'
+        )
+
+    cols, rows = _run_comparison_table(history)
+    if not rows:
+        return HTMLResponse(
+            '<div class="ptab-empty">Stored runs do not expose comparable '
+            'best-fit values yet.</div>'
+        )
+
+    head = ''.join(f'<th>{c}</th>' for c in cols)
+    body_lines = []
+    for param, row in rows.items():
+        cells = ''.join(
+            f'<td class="param-name">{row.get(c, "—")}</td>' for c in cols
+        )
+        body_lines.append(
+            f'<tr><td class="param-name"><strong>{param}</strong></td>{cells}</tr>'
+        )
+    body = ''.join(body_lines)
+
+    return HTMLResponse(
+        f'<div class="compare-table-wrap">'
+        f'  <table class="param-table compare-table">'
+        f'    <thead><tr><th>Parameter</th>{head}</tr></thead>'
+        f'    <tbody>{body}</tbody>'
+        f'  </table>'
+        f'  <a class="ptab-download" href="/infer/compare.csv" download>'
+        f'    <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor" '
+        f'style="flex-shrink:0">'
+        f'<path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm6.293-13.707a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 6.414V13a1 1 0 11-2 0V6.414L7.707 7.707a1 1 0 01-1.414-1.414l4-4z" clip-rule="evenodd"/>'
+        f'</svg>'
+        f'    Download comparison CSV'
+        f'  </a>'
+        f'</div>'
+    )
+
+
+@app.get('/infer/compare.csv')
+async def compare_runs_csv(request: Request):
+    """Export the comparison table as CSV."""
+    _, s, _ = _session(request)
+    history = s['infer_state'].get('history', [])
+    if len(history) < 2:
+        return PlainTextResponse(
+            'Need at least two completed runs to compare.', status_code=404
+        )
+
+    cols, rows = _run_comparison_table(history)
+    if not rows:
+        return PlainTextResponse(
+            'Stored runs do not expose comparable best-fit values.',
+            status_code=404,
+        )
+
+    # Build CSV body in memory — no Python csv module to keep deps minimal,
+    # and our cells are guaranteed comma- and quote-free.
+    lines = ['Parameter,' + ','.join(c.replace(',', ';') for c in cols)]
+    for param, row in rows.items():
+        cells = ','.join(row.get(c, '—').replace(',', ';') for c in cols)
+        lines.append(f'{param.replace(",", ";")},{cells}')
+    csv_body = '\n'.join(lines) + '\n'
+
+    return PlainTextResponse(
+        csv_body,
+        media_type='text/csv',
+        headers={
+            'Content-Disposition': 'attachment; filename="run_comparison.csv"',
+        },
+    )
+
+
 @app.post('/infer/run', response_class=HTMLResponse)
 async def run_infer(
     request: Request,
@@ -1446,8 +1700,11 @@ async def run_infer(
         'error': None,
     }
 
+    pair_hash = tuple(sorted(f"{p['data']}↔{p['model']}" for p in pairs))
+
     def _worker():
         task = _tasks[task_id]
+        t0 = time.time()
         try:
             n = s['infer'].free_nparams
             task['messages'].append(f'Ready — {n} free parameter(s)')
@@ -1474,10 +1731,30 @@ async def run_infer(
                 else:
                     post = fit.iminuit(savepath=savepath)
 
+            result_html = _posterior_param_html(post)
+            stat_ic_html = _posterior_stat_ic_html(post)
+            elapsed = time.time() - t0
+
             ist['posterior'] = post
-            ist['result'] = _posterior_param_html(post)
-            ist['stat_ic'] = _posterior_stat_ic_html(post)
+            ist['result'] = result_html
+            ist['stat_ic'] = stat_ic_html
             ist['error'] = None
+
+            # Push into run history (newest first, capped at 3 entries).
+            history = ist.setdefault('history', [])
+            history.insert(0, {
+                'sampler': sampler,
+                'when': time.strftime('%H:%M:%S', time.localtime(t0)),
+                'elapsed': elapsed,
+                'posterior': post,
+                'savepath': savepath,
+                'pair_hash': list(pair_hash),
+                'result_html': result_html,
+                'stat_ic_html': stat_ic_html,
+            })
+            del history[3:]
+            ist['history_idx'] = 0
+
             task['result_html'] = ist['result']
             task['status'] = 'done'
             task['messages'].append('Complete.')
@@ -1506,7 +1783,11 @@ async def run_infer(
         f'const st=document.getElementById("run-status-text");'
         f'const es=new EventSource("/infer/stream/{task_id}");'
         f'es.onmessage=function(e){{log.insertAdjacentHTML("beforeend",e.data);log.scrollTop=log.scrollHeight;st.textContent="Running\u2026";}};'
-        f'es.addEventListener("done",function(e){{es.close();document.getElementById("infer-panel").outerHTML=e.data;var np=document.getElementById("infer-panel");if(np)htmx.process(np);}});'
+        # Reload the full page on completion so the sidebar workflow
+        # indicator (and any other page-level state) refreshes alongside
+        # the infer panel. The server-side GET regenerates the same
+        # posterior view from infer_state, so nothing is lost.
+        f'es.addEventListener("done",function(){{es.close();window.location.reload();}});'
         f'es.onerror=function(){{es.close();st.textContent="Stream error \u2014 refresh to see results.";}};'
         f'}})();'
         f'</script>'
@@ -1797,3 +2078,157 @@ async def register_model(request: Request, code: str = Form(...)):
     names = ', '.join(new_classes.keys())
     est.update({'status': f'Registered: {names}', 'status_type': 'success'})
     return _render_editor_panel(request)
+
+
+# ---------- Session config export / import -----------------------------
+@app.get('/config/export')
+async def export_config(request: Request):
+    """Bundle the JSON-safe portion of the per-session state into a file.
+
+    Live objects (Data, Model, BayesInfer, Posterior, custom-model class
+    instances, etc.) are filtered out; what remains is every UI choice
+    and parameter value the user picked. Uploaded FITS spectra are not
+    portable and must be re-attached after import.
+    """
+    _, s, _ = _session(request)
+
+    payload = {
+        'version': 1,
+        'data_state': _config_strip(s.get('data_state', {})),
+        'model_state': _config_strip(s.get('model_state', {})),
+        'infer_state': _config_strip(
+            {
+                k: v
+                for k, v in s.get('infer_state', {}).items()
+                # posterior / result / stat_ic are live objects.
+                if k not in ('posterior', 'result', 'stat_ic')
+            }
+        ),
+        'editor_state': _config_strip(s.get('editor_state', {})),
+        # custom_models maps class name -> Python source string (added by
+        # the editor route). Source code is JSON-safe.
+        'custom_models_source': _config_strip(
+            {k: v for k, v in s.get('custom_models', {}).items() if isinstance(v, str)}
+        ),
+    }
+    body = json.dumps(payload, indent=2).encode('utf-8')
+    return Response(
+        content=body,
+        media_type='application/json',
+        headers={
+            'Content-Disposition': 'attachment; filename="bayspec_config.json"',
+        },
+    )
+
+
+@app.post('/config/import', response_class=HTMLResponse)
+async def import_config(request: Request, config_file: UploadFile = File(...)):
+    """Replace JSON-safe session dicts from a previously-exported file.
+
+    Returns a tiny HTMX fragment plus an HX-Refresh header so the active
+    page reloads with the imported values picked up by every form.
+    """
+    _, s, _ = _session(request)
+    blob = await config_file.read()
+
+    try:
+        cfg = json.loads(blob.decode('utf-8'))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        return HTMLResponse(
+            f'<div class="config-toast error">⚠️ Could not parse '
+            f'<code>{config_file.filename}</code>: {exc}</div>',
+            status_code=400,
+        )
+
+    if not isinstance(cfg, dict) or cfg.get('version') != 1:
+        return HTMLResponse(
+            '<div class="config-toast error">⚠️ Unsupported config '
+            'version (expected 1).</div>',
+            status_code=400,
+        )
+
+    for state_key in ('data_state', 'model_state', 'infer_state', 'editor_state'):
+        loaded = cfg.get(state_key)
+        if isinstance(loaded, dict):
+            target = s.setdefault(state_key, {})
+            target.clear()
+            target.update(loaded)
+
+    # Drop derived caches — they must be rebuilt from the imported intent.
+    s['data'] = {}
+    s['model'] = {}
+    s['model_component'] = {}
+    s['infer'] = None
+
+    # Re-load any custom-model source codes (they get registered into
+    # _local_models on the next /editor visit, where we have the right
+    # context. Just preserve the strings for now.)
+    custom_src = cfg.get('custom_models_source')
+    if isinstance(custom_src, dict):
+        s.setdefault('custom_models', {}).update(
+            {k: v for k, v in custom_src.items() if isinstance(v, str)}
+        )
+
+    # HX-Refresh tells HTMX to fully reload the current document so every
+    # template re-renders with the imported state.
+    return HTMLResponse(
+        '<div class="config-toast ok">✅ Configuration loaded. Re-upload '
+        'FITS spectra to complete the setup.</div>',
+        headers={'HX-Refresh': 'true'},
+    )
+
+
+# ----- Session reset --------------------------------------------------------
+
+_RESET_BUTTON_HTML = (
+    '<button type="button" class="config-btn"'
+    ' hx-get="/config/reset/confirm" hx-target="#config-reset-slot"'
+    ' hx-swap="innerHTML"'
+    ' title="Wipe Data, Models, Pairs, and Inference state. Custom models you'
+    ' registered are kept.">'
+    '<svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">'
+    '<path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311'
+    'h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.43'
+    '4l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.385zm1.23-3.723a.75.75 0 00.219'
+    '-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.4'
+    '48.388A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 '
+    '00.53-.219z" clip-rule="evenodd"/>'
+    '</svg>Reset session</button>'
+)
+
+_RESET_CONFIRM_HTML = (
+    '<div class="config-reset-confirm">'
+    '<span class="config-reset-prompt">Reset everything?</span>'
+    '<div class="config-reset-actions">'
+    '<button type="button" class="config-btn config-btn-ghost"'
+    ' hx-get="/config/reset/button" hx-target="#config-reset-slot"'
+    ' hx-swap="innerHTML">Cancel</button>'
+    '<button type="button" class="config-btn config-btn-danger"'
+    ' hx-post="/config/reset" hx-target="#config-reset-slot"'
+    ' hx-swap="innerHTML">Yes, reset</button>'
+    '</div></div>'
+)
+
+
+@app.get('/config/reset/button', response_class=HTMLResponse)
+async def reset_button():
+    """Restore the default 'Reset session' button (cancel path)."""
+    return HTMLResponse(_RESET_BUTTON_HTML)
+
+
+@app.get('/config/reset/confirm', response_class=HTMLResponse)
+async def reset_confirm():
+    """Inline two-step confirm before wiping the session."""
+    return HTMLResponse(_RESET_CONFIRM_HTML)
+
+
+@app.post('/config/reset', response_class=HTMLResponse)
+async def reset_session(request: Request):
+    """Wipe the session back to initial state, preserving custom_models."""
+    _, s, _ = _session(request)
+    custom = s.get('custom_models') or {}
+    fresh = state._new()
+    fresh['custom_models'] = custom
+    s.clear()
+    s.update(fresh)
+    return HTMLResponse('', headers={'HX-Refresh': 'true'})

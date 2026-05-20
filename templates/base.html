@@ -17,7 +17,7 @@
   <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 
   <!-- App CSS -->
-  <link rel="stylesheet" href="/static/style.css?v=4" />
+  <link rel="stylesheet" href="/static/style.css?v=6" />
 
   {% block head %}{% endblock %}
 </head>
@@ -33,63 +33,64 @@
             <stop offset="0%" stop-color="#4F46E5"/>
             <stop offset="100%" stop-color="#06B6D4"/>
           </linearGradient>
+          <linearGradient id="logo-wordmark" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#4F46E5"/>
+            <stop offset="100%" stop-color="#06B6D4"/>
+          </linearGradient>
         </defs>
-        <rect x="2" y="2" width="48" height="48" rx="11" fill="url(#logo-grad)"/>
 
-        <!-- Log-log plot frame -->
-        <path d="M 9 9 L 9 42 L 46 42"
-              stroke="#FFF" stroke-opacity="0.45" stroke-width="1.1"
-              fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Icon tile -->
+        <rect x="2" y="2" width="48" height="48" rx="12" fill="url(#logo-grad)"/>
 
-        <!-- Log-decade tick marks -->
-        <g stroke="#FFF" stroke-opacity="0.4" stroke-width="0.9" stroke-linecap="round">
-          <line x1="19" y1="42" x2="19" y2="40.6"/>
-          <line x1="30" y1="42" x2="30" y2="40.6"/>
-          <line x1="40" y1="42" x2="40" y2="40.6"/>
-          <line x1="9" y1="32" x2="10.4" y2="32"/>
-          <line x1="9" y1="22" x2="10.4" y2="22"/>
-          <line x1="9" y1="14" x2="10.4" y2="14"/>
+        <!-- Sun / 2D posterior: nested rotated ellipses (still tilted so
+             they read as a credible region, but rounder than before so
+             they also feel sun-like). Sits upper-right of the tile. -->
+        <g transform="rotate(-18, 33, 14)">
+          <ellipse cx="33" cy="14" rx="10" ry="8"   fill="#FFF" opacity="0.18"/>
+          <ellipse cx="33" cy="14" rx="7"  ry="5.5" fill="#FFF" opacity="0.32"/>
+          <ellipse cx="33" cy="14" rx="4"  ry="3"   fill="#FFF" opacity="0.58"/>
         </g>
+        <circle cx="33" cy="14" r="1.7" fill="#FFF"/>
 
-        <!-- Band function (νF_ν): asymmetric smooth peak, classic GRB spectrum -->
-        <path d="M 11 36
-                 C 16 33, 25 13, 28 13
-                 C 34 13, 38 21, 45 28"
-              stroke="#FFF" stroke-width="2.3" fill="none"
+        <!-- Distant range = faint second silhouette peeking from behind -->
+        <path d="M 24 44 L 24 41 C 28 39, 30 31, 32 31
+                 C 35 31, 37 37, 40 40 L 40 44 Z"
+              fill="#FFF" opacity="0.10"/>
+
+        <!-- Mountain silhouette = filled area under the spectrum curve -->
+        <path d="M 5 44 L 5 41 C 8 39, 13 29, 17 29
+                 C 22 28, 30 37, 44 40 L 44 44 Z"
+              fill="#FFF" opacity="0.18"/>
+
+        <!-- Mountain ridge = best-fit model curve drawn crisply on top.
+             Climbs immediately from the left, rounded shoulder at peak,
+             long graceful power-law tail to the right. -->
+        <path d="M 5 41 C 8 39, 13 29, 17 29 C 22 28, 30 37, 44 40"
+              stroke="#FFF" stroke-width="1.4" fill="none"
               stroke-linecap="round" stroke-linejoin="round"/>
 
-        <!-- Data points along the spectrum -->
-        <circle cx="14" cy="31" r="1.35" fill="#FFF"/>
-        <circle cx="21" cy="24" r="1.35" fill="#FFF"/>
-        <circle cx="33" cy="16" r="1.35" fill="#FFF"/>
-        <circle cx="40" cy="22" r="1.35" fill="#FFF"/>
+        <!-- Data points pinned along the ridge (peak dot brighter) -->
+        <circle cx="10" cy="36" r="1.1" fill="#FFF"/>
+        <circle cx="17" cy="29" r="1.5" fill="#FFF"/>
+        <circle cx="32" cy="36" r="1.1" fill="#FFF"/>
 
+        <!-- Horizon line — trimmed so the mountain "stands in front of" it -->
+        <line x1="3"  y1="44" x2="5"  y2="44"
+              stroke="#FFF" stroke-opacity="0.22" stroke-width="0.7"
+              stroke-linecap="round"/>
+        <line x1="44" y1="44" x2="47" y2="44"
+              stroke="#FFF" stroke-opacity="0.22" stroke-width="0.7"
+              stroke-linecap="round"/>
+
+        <!-- Wordmark in matching indigo→cyan gradient -->
         <text x="62" y="35"
               font-family="Inter, system-ui, sans-serif"
               font-size="26" font-weight="800"
-              fill="#0F172A" letter-spacing="-0.8">BaySpec</text>
+              fill="url(#logo-wordmark)" letter-spacing="-0.8">BaySpec</text>
       </svg>
     </div>
 
     <p class="sidebar-tagline">Bayesian spectral fitting workbench for high-energy astrophysics.</p>
-
-    <hr style="margin:.5rem 0" />
-
-    <!-- Workflow steps -->
-    <div class="sidebar-workflow">
-      <span class="sidebar-workflow-label">Workflow</span>
-      <ol class="sidebar-workflow-list">
-        <li class="{% if active_page == 'data' %}is-active{% endif %}">
-          <span class="step-num">1</span> Upload Data
-        </li>
-        <li class="{% if active_page == 'model' %}is-active{% endif %}">
-          <span class="step-num">2</span> Build Model
-        </li>
-        <li class="{% if active_page == 'infer' %}is-active{% endif %}">
-          <span class="step-num">3</span> Run Inference
-        </li>
-      </ol>
-    </div>
 
     <hr style="margin:.5rem 0" />
 
@@ -126,6 +127,81 @@
 
     {% block sidebar_extra %}{% endblock %}
 
+    <hr style="margin:.5rem 0" />
+
+    <!-- Workflow steps (5-stage live progress from session state) -->
+    <div class="sidebar-workflow">
+      <span class="sidebar-workflow-label">Workflow</span>
+      <ol class="sidebar-workflow-list">
+        {% for step in workflow %}
+        <li class="is-{{ step.state }}">
+          <span class="step-num">{{ step.num }}</span>
+          <span class="step-body">
+            <span class="step-title">{{ step.title }}</span>
+            <span class="step-caption">{{ step.caption }}</span>
+          </span>
+          <span class="step-dot">
+            {% if step.state == 'done' %}●{% elif step.state == 'active' %}◉{% else %}○{% endif %}
+          </span>
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+
+    <hr style="margin:.5rem 0" />
+
+    <!-- Save / Load / Reset session configuration -->
+    <div class="sidebar-config">
+      <span class="nav-section-label">Configuration</span>
+
+      <!-- Reset session — inline two-step confirm. Custom models you
+           registered in the Model page are preserved. -->
+      <div id="config-reset-slot">
+        <button type="button" class="config-btn"
+                hx-get="/config/reset/confirm"
+                hx-target="#config-reset-slot"
+                hx-swap="innerHTML"
+                title="Wipe Data, Models, Pairs, and Inference state. Custom models you registered are kept.">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <!-- Heroicons solid arrow-path -->
+            <path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 01-9.201 2.466l-.312-.311h2.433a.75.75 0 000-1.5H3.989a.75.75 0 00-.75.75v4.242a.75.75 0 001.5 0v-2.434l.31.31a7 7 0 0011.712-3.138.75.75 0 00-1.449-.385zm1.23-3.723a.75.75 0 00.219-.53V2.929a.75.75 0 00-1.5 0V5.36l-.31-.31A7 7 0 003.239 8.188a.75.75 0 101.448.388A5.5 5.5 0 0113.89 6.11l.311.31h-2.432a.75.75 0 000 1.5h4.243a.75.75 0 00.53-.219z" clip-rule="evenodd"/>
+          </svg>
+          Reset session
+        </button>
+      </div>
+
+      <a class="config-btn" href="/config/export" download="bayspec_config.json"
+         title="Bundle every UI choice into a JSON file. FITS uploads are not included; re-attach them after loading.">
+        <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <!-- Heroicons solid arrow-down-tray (download) -->
+          <path d="M10.75 2.75a.75.75 0 00-1.5 0v8.614L6.295 8.235a.75.75 0 10-1.09 1.03l4.25 4.5a.75.75 0 001.09 0l4.25-4.5a.75.75 0 00-1.09-1.03l-2.955 3.129V2.75z"/>
+          <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/>
+        </svg>
+        Save config
+      </a>
+
+      <form id="config-import-form"
+            hx-post="/config/import"
+            hx-encoding="multipart/form-data"
+            hx-target="#config-import-toast"
+            hx-swap="innerHTML">
+        <label class="config-btn" for="config-file-input">
+          <svg class="nav-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <!-- Heroicons solid arrow-up-tray (upload) -->
+            <path d="M9.25 13.25a.75.75 0 001.5 0V4.636l2.955 3.129a.75.75 0 001.09-1.03l-4.25-4.5a.75.75 0 00-1.09 0l-4.25 4.5a.75.75 0 001.09 1.03L9.25 4.636v8.614z"/>
+            <path d="M3.5 12.75a.75.75 0 00-1.5 0v2.5A2.75 2.75 0 004.75 18h10.5A2.75 2.75 0 0018 15.25v-2.5a.75.75 0 00-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5z"/>
+          </svg>
+          Load config
+        </label>
+        <input id="config-file-input" type="file" name="config_file"
+               accept=".json,application/json" style="display:none"
+               onchange="document.getElementById('config-import-form').requestSubmit()" />
+      </form>
+      <div id="config-import-toast"></div>
+    </div>
+
+    <hr style="margin:.5rem 0" />
+
     <!-- Version / links footer -->
     <div class="sidebar-version">
       <span>BaySpec</span>
@@ -138,6 +214,19 @@
     <main id="content">
       {% block content %}{% endblock %}
     </main>
+    <footer class="page-footer">
+      <div class="page-footer-brand">
+        <span class="page-footer-name">BaySpec</span>
+        <span class="page-footer-tag">Bayesian spectral fitting workbench</span>
+      </div>
+      <div class="page-footer-links">
+        <a href="https://pypi.org/project/bayspec/" target="_blank" rel="noopener">PyPI</a>
+        <a href="https://bayspec.readthedocs.io" target="_blank" rel="noopener">Docs</a>
+        <a href="https://github.com/jyangch/bayspec" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://www.gnu.org/licenses/gpl-3.0-standalone.html"
+           target="_blank" rel="noopener">GPL-3.0</a>
+      </div>
+    </footer>
   </div>
 
   <script src="/static/app.js"></script>
