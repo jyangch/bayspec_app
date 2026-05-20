@@ -1,3 +1,14 @@
+---
+title: BaySpec
+emoji: ⚛️
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+short_description: Bayesian spectral fitting for high-energy astrophysics
+---
+
 # BaySpec App
 
 A Bayesian spectral fitting workbench for high-energy astrophysics — a web

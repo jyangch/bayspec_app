@@ -1,0 +1,16 @@
+.git
+.gitignore
+.gitattributes
+.claude
+.vscode
+.sisyphus
+.ruff_cache
+.playwright-mcp
+__pycache__
+**/__pycache__
+*.pyc
+.DS_Store
+uploads/*
+output/*
+docs
+LICENSE
