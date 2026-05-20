@@ -1679,6 +1679,8 @@ details[open] .howto-summary::before { transform: rotate(90deg); }
   gap: .55rem;
   padding: .45rem .65rem;
   margin: .1rem 0;
+  width: 100%;
+  box-sizing: border-box;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background-color: var(--bg);
@@ -1744,6 +1746,7 @@ details[open] .howto-summary::before { transform: rotate(90deg); }
 .config-reset-actions { display: flex; gap: .35rem; }
 .config-reset-actions .config-btn {
   flex: 1;
+  width: auto;
   justify-content: center;
   padding: .35rem .55rem;
   font-size: .78rem;
