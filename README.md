@@ -1,14 +1,3 @@
----
-title: BaySpec
-emoji: ⚛️
-colorFrom: indigo
-colorTo: blue
-sdk: docker
-app_port: 7860
-pinned: false
-short_description: Bayesian spectral fitting for high-energy astrophysics
----
-
 # BaySpec App
 
 A Bayesian spectral fitting workbench for high-energy astrophysics — a web
@@ -75,28 +64,6 @@ A live, public deployment is available at
 <https://huggingface.co/spaces/jyangch/bayspec>. The repo doubles as a
 Docker-SDK Space — the YAML header at the top of this README and the
 `Dockerfile` are everything HF needs to build and serve the app.
-
-To run your own copy:
-
-1. Create a new Space at <https://huggingface.co/new-space>, picking
-   **Docker → Blank**.
-2. Push this repo to the Space's git remote, or use the HF CLI:
-   ```sh
-   pip install -U "huggingface_hub[cli]"
-   hf auth login                            # paste a Write token
-   hf repo create <name> --repo-type space --space-sdk docker
-   hf upload <user>/<name> . --repo-type space \
-     --exclude ".git/**" --exclude "**/__pycache__/**" \
-     --exclude "uploads/**" --exclude "output/**"
-   ```
-3. HF will build the container and serve it on a `*.hf.space` URL.
-
-A local Docker smoke test before pushing:
-
-```sh
-docker build -t bayspec .
-docker run --rm -p 7860:7860 bayspec   # http://localhost:7860
-```
 
 The HF free tier resets the filesystem on container restart, so uploaded
 FITS files and exported fits are lost between sleeps. Enable Persistent
